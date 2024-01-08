@@ -19,7 +19,6 @@ public final class Mapcreator extends MapRenderer implements Listener {
         if (player.getWorld() == markerLocation.getWorld()) {
             MapCursor cursor = mapCanvas.getCursors().getCursor(0);
 
-            // Entferne vorhandenen Cursor
             cursor.setVisible(false);
 
             int centerX = markerLocation.getBlockX() * 2;
@@ -39,12 +38,12 @@ public final class Mapcreator extends MapRenderer implements Listener {
 
     @Override
     public void initialize(MapView mapView) {
-        mapView.setScale(MapView.Scale.NORMAL); // Setzen Sie die Karten-Skala auf NORMAL
+        mapView.setScale(MapView.Scale.NORMAL); 
     }
 
     public static short createTreasureMap(World world, Location location) {
         MapView mapView = Bukkit.createMap(world);
-        mapView.getRenderers().forEach(mapView::removeRenderer); // Lösche vorhandene Renderer
+        mapView.getRenderers().forEach(mapView::removeRenderer); 
 
         Mapcreator mapRenderer = new Mapcreator(location);
         mapView.addRenderer(mapRenderer);
