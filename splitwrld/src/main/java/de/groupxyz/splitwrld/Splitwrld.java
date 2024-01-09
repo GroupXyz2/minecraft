@@ -169,24 +169,25 @@ public final class Splitwrld extends JavaPlugin implements Listener, PluginMessa
 
     private void pingServer(CommandSender sender, String serverName) {
         sender.sendMessage("Pinging " + serverName + "...");
-        if (pingServerStatus(serverName)) {
-            sender.sendMessage(serverName + " is online!");
+        if ("overworld".equals(serverName) || "nether".equals(serverName) || "end".equals(serverName)) {
+            if (pingServerStatus(serverName)) {
+                sender.sendMessage(serverName + " is online!");
+            } else {
+                sender.sendMessage(serverName + " is offline or unreachable.");
+            }
         } else {
-            sender.sendMessage(serverName + " is offline or unreachable.");
+            sender.sendMessage("Servername has to be overworld, nether or end");
         }
     }
 
 
     private boolean pingServerStatus(String serverName) {
-        if ("overworld".equals(serverName) || "nether".equals(serverName) || "end".equals(serverName)) {
-            try (Socket socket = new Socket()) {
-                socket.connect(new InetSocketAddress("localhost", getServerPort(serverName)), 1000);
-                return true;
-            } catch (IOException e) {
-                return false;
-            }
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("localhost", getServerPort(serverName)), 1000);
+            return true;
+        } catch (IOException e) {
+            return false;
         }
-        return false;
     }
 
     private int getServerPort(String serverName) {
