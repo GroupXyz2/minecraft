@@ -1,0 +1,12 @@
+name: splitwrld
+version: '${version}'
+main: de.groupxyz.splitwrld.Splitwrld
+api-version: '1.20'
+author: GroupXyz
+commands:
+  listworlds:
+    description: List all worlds
+    usage: /listworlds
+  pingworldserver:
+    description: Ping worldserver
+    usage: /pingworldserver <server>
