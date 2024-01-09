@@ -28,7 +28,7 @@ public final class Splitwrld extends JavaPlugin implements Listener, PluginMessa
         getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
         getServer().getMessenger().registerIncomingPluginChannel(this, "BungeeCord", this);
         getCommand("listworlds").setExecutor(this);
-        getCommand("pingworld").setExecutor(this);
+        getCommand("pingworldserver").setExecutor(this);
         getLogger().info("Splitwrld by GroupXyz initiallized!");
     }
 
