@@ -176,22 +176,26 @@ public final class Splitwrld extends JavaPlugin implements Listener, PluginMessa
         }
     }
 
+
     private boolean pingServerStatus(String serverName) {
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress("localhost", getServerPort(serverName)), 1000);
-            return true;
-        } catch (IOException e) {
-            return false;
+        if ("overworld".equals(serverName) || "nether".equals(serverName) || "end".equals(serverName)) {
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress("localhost", getServerPort(serverName)), 1000);
+                return true;
+            } catch (IOException e) {
+                return false;
+            }
         }
+        return false;
     }
 
     private int getServerPort(String serverName) {
-        if (serverName.equalsIgnoreCase("nether")) {
+        if (serverName.equalsIgnoreCase("overworld")) {
+            return serverport_overworld;
+        } else if (serverName.equalsIgnoreCase("nether")) {
             return serverport_nether;
         } else if (serverName.equalsIgnoreCase("end")) {
             return serverport_end;
-        } else if (serverName.equalsIgnoreCase("overworld")) {
-            return serverport_overworld;
         } else {
             getLogger().info("Error: Teleport to " + serverName + " not possible (unknown Server)");
             return  25561;
