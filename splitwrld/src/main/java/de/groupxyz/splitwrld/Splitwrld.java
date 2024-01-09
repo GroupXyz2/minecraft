@@ -6,6 +6,7 @@ import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -16,6 +17,7 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -29,12 +31,30 @@ public final class Splitwrld extends JavaPlugin implements Listener, PluginMessa
         getServer().getMessenger().registerIncomingPluginChannel(this, "BungeeCord", this);
         getCommand("listworlds").setExecutor(this);
         getCommand("pingworldserver").setExecutor(this);
+        getCommand("worldserverconfigreload").setExecutor(this);
+        if (!new File(getDataFolder(), "config.yml").exists()) {
+            saveDefaultConfig();
+        }
+        loadConfigValues();
         getLogger().info("Splitwrld by GroupXyz initiallized!");
     }
 
     @Override
     public void onDisable() {
         getLogger().info("Splitworld shutting down...");
+    }
+
+    private final String serverip = Bukkit.getServer().getIp();
+    private int serverport_end;
+    private int serverport_nether;
+    private int serverport_overworld;
+
+    private void loadConfigValues() {
+        FileConfiguration config = getConfig();
+
+        serverport_end = config.getInt("serverport_end", 25563);
+        serverport_nether = config.getInt("serverport_nether", 25562);
+        serverport_overworld = config.getInt("serverport_overworld", 25561);
     }
 
     @EventHandler
@@ -84,6 +104,8 @@ public final class Splitwrld extends JavaPlugin implements Listener, PluginMessa
 
             dataOutputStream.writeUTF("Connect");
             dataOutputStream.writeUTF(targetWorld);
+            dataOutputStream.writeUTF(serverip);
+            dataOutputStream.writeShort(getServerPort(targetWorld));
             dataOutputStream.writeDouble(targetLocation.getX());
             dataOutputStream.writeDouble(targetLocation.getY());
             dataOutputStream.writeDouble(targetLocation.getZ());
@@ -123,6 +145,9 @@ public final class Splitwrld extends JavaPlugin implements Listener, PluginMessa
         if (command.getName().equalsIgnoreCase("listworlds")) {
             listAvailableWorlds(sender);
             return true;
+        } else if (command.getName().equalsIgnoreCase("worldserverconfigreload")){
+            loadConfigValues();
+            sender.sendMessage("World server configuration reloaded.");
         } else if (command.getName().equalsIgnoreCase("pingworldserver")) {
             if (args.length == 1) {
                 pingServer(sender, args[0]);
@@ -161,12 +186,15 @@ public final class Splitwrld extends JavaPlugin implements Listener, PluginMessa
     }
 
     private int getServerPort(String serverName) {
-        if (serverName.equalsIgnoreCase("world_nether")) {
-            return 25566; //Example Port
-        } else if (serverName.equalsIgnoreCase("world_end")) {
-            return 25567; //Example Port
+        if (serverName.equalsIgnoreCase("nether")) {
+            return serverport_nether;
+        } else if (serverName.equalsIgnoreCase("end")) {
+            return serverport_end;
+        } else if (serverName.equalsIgnoreCase("overworld")) {
+            return serverport_overworld;
         } else {
-            return 25565; // Example Port
+            getLogger().info("Error: Teleport to " + serverName + " not possible (unknown Server)");
+            return  25561;
         }
     }
 }
