@@ -6,7 +6,7 @@ author: GroupXyz
 commands:
   listworlds:
     description: List all worlds
-    usage: /listworlds
   pingworldserver:
     description: Ping worldserver
-    usage: /pingworldserver <server>
+  worldserverconfigreload:
+    description: Reload config
