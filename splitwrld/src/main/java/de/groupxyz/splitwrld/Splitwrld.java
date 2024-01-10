@@ -197,6 +197,12 @@ public final class Splitwrld extends JavaPlugin implements Listener, PluginMessa
             return serverport_nether;
         } else if (serverName.equalsIgnoreCase("end")) {
             return serverport_end;
+        } else if (serverName.equals("world")) {
+            return serverport_overworld;
+        } else if (serverName.equals("world_nether")) {
+            return serverport_nether;
+        } else if (serverName.equals("world_the_end")) {
+            return serverport_end;
         } else {
             getLogger().info("Error: Teleport to " + serverName + " not possible (unknown Server)");
             return  25561;
