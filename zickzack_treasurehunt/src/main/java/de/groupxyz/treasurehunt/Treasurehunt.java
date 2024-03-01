@@ -1,10 +1,14 @@
 package de.groupxyz.treasurehunt;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.bukkit.*;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,39 +16,48 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.map.MapRenderer;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.map.MapView;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 import de.groupxyz.treasurehunt.Mapcreator;
-import org.slf4j.Logger;
+import org.jetbrains.annotations.NotNull;
 
 public final class Treasurehunt extends JavaPlugin implements Listener {
 
     private Map<UUID, Location> treasureLocations = new HashMap<>();
     private Set<UUID> playersInHunt = new HashSet<>();
     private UUID winner = null;
-
+    private Player winnername = null;
     private Boolean GamemodeWarningTold = false;
+    private boolean isTreasurePlaced = false;
+    private Location customTreasureLocation = null;
+
+    private File configFile;
+    private FileConfiguration config;
+
+    String serverPrefix = loadServerPrefix();
 
     @Override
     public void onEnable() {
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("Treasurehunt by GroupXyz initialized!");
+        loadTreasurehuntConfig();
     }
 
     @Override
     public void onDisable() {
         getLogger().info("Treasurehunt shutting down...");
-        // Plugin shutdown logic
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl kann nur von Spielern ausgeführt werden.");
+            sender.sendMessage(ChatColor.RED +  "Dieser Befehl kann nur von Spielern ausgeführt werden.");
             return true;
         }
 
@@ -56,28 +69,112 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         } else if (command.getName().equalsIgnoreCase("treasurehuntdebug")) {
             showTreasureLocation(player);
             return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntreload")) {
+            reloadConfig();
+            loadServerPrefix();
+            player.sendMessage(serverPrefix + ChatColor.YELLOW + "Config reloaded!");
+            return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntversion")) {
+            player.sendMessage(serverPrefix + ChatColor.GREEN + "The author of treasurehunt is GroupXyz and the version of Treasurehunt is: " + getPluginMeta().getVersion());
+            return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntcustom")) {
+            if (args.length < 3) {
+                player.sendMessage(ChatColor.RED + "Usage: /treasurehuntcustom <X> <Y> <Z>");
+                return true;
+            }
+            int x, y, z;
+            try {
+                x = Integer.parseInt(args[0]);
+                y = Integer.parseInt(args[1]);
+                z = Integer.parseInt(args[2]);
+            } catch (NumberFormatException e) {
+                player.sendMessage(ChatColor.RED + "Invalid Corrdinates.");
+                return true;
+            }
+
+            startCustomTreasureHunt(player, new Location(player.getWorld(), x, y, z));
+            return true;
         }
 
         return false;
     }
 
-    private void startTreasureHunt(Player triggerPlayer) {
-        Location treasureLocation = generateRandomLocation(triggerPlayer.getWorld());
-        treasureLocations.put(triggerPlayer.getUniqueId(), treasureLocation);
-        playersInHunt.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getUniqueId).toList());
+    private void loadTreasurehuntConfig() {
+        configFile = new File(getDataFolder(), "config.yml");
 
-        short mapId = Mapcreator.createTreasureMap(triggerPlayer.getWorld(), treasureLocation);
-        for (UUID playerUUID : playersInHunt) {
-            Player participant = Bukkit.getPlayer(playerUUID);
-            if (participant != null) {
-                giveMapToPlayer(participant, mapId, treasureLocation);
-            }
+        if (!configFile.exists()) {
+            saveResource("config.yml", false);
+        }
+
+        config = YamlConfiguration.loadConfiguration(configFile);
+        config.options().copyDefaults(true);
+        saveTreasurehuntConfig();
+    }
+
+    private void saveTreasurehuntConfig() {
+        try {
+            config.save(configFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String loadServerPrefix() {
+        FileConfiguration config = getConfig();
+        return ChatColor.translateAlternateColorCodes('&', config.getString("serverPrefix", "[&e&k1&r&eTreasure&3Hunt&k1&r] "));
+    }
+
+    private void startTreasureHunt(Player triggerPlayer) {
+        playersInHunt.clear();
+        treasureLocations.clear();
+
+        Location treasureLocation;
+
+        if (customTreasureLocation== null) {
+            treasureLocation = generateRandomLocation(triggerPlayer.getWorld());
+        } else {
+            treasureLocation = customTreasureLocation;
         }
 
         for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-            onlinePlayer.sendMessage(ChatColor.GREEN + "Schatzsuche gestartet! Eine Wettjagd hat begonnen.");
+            treasureLocations.put(onlinePlayer.getUniqueId(), treasureLocation);
+            giveCompassToPlayer(onlinePlayer, treasureLocation, ChatColor.YELLOW + "Schatz-Kompass");
+            playersInHunt.add(onlinePlayer.getUniqueId());
+        }
+
+        short mapId = Mapcreator.createTreasureMap(triggerPlayer.getWorld(), treasureLocation);
+
+        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            onlinePlayer.sendMessage(serverPrefix + ChatColor.DARK_AQUA + "Eine Schatzsuche hat begonnen!");
             getLogger().info("A Treasurehunt has started!");
         }
+    }
+
+    private void startCustomTreasureHunt(Player triggerPlayer, Location customLocation) {
+        customTreasureLocation = customLocation;
+        startTreasureHunt(triggerPlayer);
+    }
+
+    private void checkCustomTreasureArrival(Player triggerPlayer, Location customLocation) {
+        for (UUID uuid : playersInHunt) {
+            Player onlinePlayer = Bukkit.getPlayer(uuid);
+            if (onlinePlayer != null) {
+                if (onlinePlayer.getLocation().distance(customLocation) < 5.0 && onlinePlayer.getGameMode().equals(GameMode.SURVIVAL)) {
+                    winner = uuid;
+                    winnername = triggerPlayer;
+                    onlinePlayer.sendMessage(serverPrefix + ChatColor.GREEN + "Du hast die Schatzsuche gewonnen! Herzlichen Glückwunsch!");
+                    getServer().broadcastMessage(serverPrefix + ChatColor.YELLOW + onlinePlayer.getName() + " hat den Schatz gefunden. Die Schatzsuche ist vorbei!");
+                    getLogger().info("Treasurehunt ended, the winner is " + onlinePlayer.getName());
+                    reset();
+                } winnername.sendMessage(serverPrefix + ChatColor.YELLOW + ("Treasure room not build, you aren't in survival mode!"));
+                GamemodeWarningTold = true;
+            } else {
+                getLogger().warning("onlinePlayer is null!");
+            }
+        }
+
+        playersInHunt.clear();
+        reset();
     }
 
     private void giveMapToPlayer(Player player, short mapId, Location treasureLocation) {
@@ -90,21 +187,47 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             mapView.addRenderer(mapRenderer);
 
             Bukkit.getScheduler().runTaskLater(this, () -> {
-                treasureMap.setDurability(mapId);
+                treasureMap.setDurability((short) 0);
                 player.getInventory().addItem(treasureMap);
-                player.sendMessage(ChatColor.GREEN + "Du hast eine Schatzkarte erhalten! Folge den Hinweisen, um den Schatz zu finden.");
+                player.sendMessage(serverPrefix + ChatColor.GREEN + "Du hast eine Schatzkarte erhalten! Folge den Hinweisen, um den Schatz zu finden.");
             }, 20L);
-            //TODO: Fix Treasure Map not rendering
+        } else {
+            getLogger().warning("MapView for ID " + mapId + " is null.");
         }
+    }
+
+    private void giveCompassToPlayer(Player player, Location treasureLocation, String compassName) {
+        ItemStack compass = new ItemStack(Material.COMPASS);
+        ItemMeta compassMeta = compass.getItemMeta();
+
+        compassMeta.setDisplayName(compassName);
+        compassMeta.addEnchant(Enchantment.DURABILITY, 3, true);
+        compass.setItemMeta(compassMeta);
+
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            player.setCompassTarget(treasureLocation);
+
+            if (isInventoryFull(player)) {
+                player.getWorld().dropItemNaturally(player.getLocation(), compass);
+            } else {
+                player.getInventory().addItem(compass);
+            }
+
+            player.sendMessage(serverPrefix + ChatColor.GREEN + "Du hast einen Schatz-Kompass erhalten! Folge ihm, um den Schatz zu finden.");
+        }, 20L);
+    }
+
+    private boolean isInventoryFull(Player player) {
+        return player.getInventory().firstEmpty() == -1;
     }
 
     private void showTreasureLocation(Player player) {
         if (treasureLocations.containsKey(player.getUniqueId())) {
             Location treasureLocation = treasureLocations.get(player.getUniqueId());
-            player.sendMessage(ChatColor.YELLOW + "Schatzkoordinaten: X=" + treasureLocation.getBlockX() +
+            player.sendMessage(serverPrefix + ChatColor.YELLOW + "Schatzkoordinaten: X=" + treasureLocation.getBlockX() +
                     ", Y=" + treasureLocation.getBlockY() + ", Z=" + treasureLocation.getBlockZ());
         } else {
-            player.sendMessage(ChatColor.RED + "Du nimmst nicht an einer Schatzsuche teil.");
+            player.sendMessage(serverPrefix + ChatColor.RED + "Du nimmst nicht an einer Schatzsuche teil.");
         }
     }
 
@@ -113,41 +236,33 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         UUID playerUUID = player.getUniqueId();
 
-        if (playersInHunt.contains(playerUUID)) {
-            Location treasureLocation = treasureLocations.get(playerUUID);
+        try {
+            if (playersInHunt.contains(playerUUID)) {
+                Location treasureLocation = treasureLocations.get(playerUUID);
 
-            if (player.getLocation().distance(treasureLocation) < 20.0 && player.getGameMode().equals(GameMode.SURVIVAL)) {
-                if (winner == null) {
-                    winner = playerUUID;
-                    for (UUID uuid : playersInHunt) {
-                        Player onlinePlayer = Bukkit.getPlayer(uuid);
-                        if (onlinePlayer != null) {
-                            if (uuid.equals(winner)) {
-                                onlinePlayer.sendMessage(ChatColor.YELLOW + player.getName() + " hat den Schatz gefunden. Die Wettjagd ist vorbei!");
-                                getLogger().info("Treasurehunt ended, the winner is " + player.getName() );
-                                giveTreasure(player, treasureLocation);
-                                reset();
-                            } else {
-                                onlinePlayer.sendMessage(ChatColor.YELLOW + player.getName() + " hat den Schatz gefunden. Die Wettjagd ist vorbei!");
-                                getLogger().info("Treasurehunt ended, the winner is " + player.getName() );
-                                reset();
-                            }
-                        }
+                if (treasureLocation != null) {
+                    if (player.getLocation().distance(treasureLocation) < 5.0 && player.getGameMode().equals(GameMode.SURVIVAL)) {
+                        checkPlayerWin(player);
+                    } else if (player.getLocation().distance(treasureLocation) < 5.0 && !player.getGameMode().equals(GameMode.SURVIVAL) && !GamemodeWarningTold) {
+                        player.sendMessage(serverPrefix + ChatColor.YELLOW + ("Treasure room not build, you aren't in survival mode!"));
+                        GamemodeWarningTold = true;
                     }
-                    playersInHunt.clear();
+                } else {
+                    getLogger().warning("Treasure location is null!");
                 }
             }
-            else if (player.getLocation().distance(treasureLocation) < 20.0 && !player.getGameMode().equals(GameMode.SURVIVAL) && !GamemodeWarningTold) {
-                player.sendMessage(ChatColor.YELLOW + ("Treasure room not build, you aren't in survival mode!"));
-                GamemodeWarningTold = true;
-                //TODO: Fix Treasure Room variables not resetting properly and Treasure Room Command beeing unable to be reused!
+
+        } catch (Exception e) {
+            if (!(e instanceof NullPointerException)) {
+                getLogger().warning("Treasurehunt Exception: " + e.getMessage());
             }
         }
     }
 
+
     private Location generateRandomLocation(World world) {
         Random random = new Random();
-        int x = random.nextInt(10000) - 5000; //TODO: Tweaking required, currently spawning at ca. 5000
+        int x = random.nextInt(10000) - 5000; //Maybe: Tweaking
         int z = random.nextInt(10000) - 5000;
         int y = world.getHighestBlockYAt(x, z);
 
@@ -155,77 +270,168 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     }
 
     private void giveTreasure(Player player, Location location) {
-        World world = player.getWorld();
-        int centerX = location.getBlockX();
-        int centerZ = location.getBlockZ();
-        int centerY = world.getHighestBlockYAt(centerX, centerZ) - 1;
+        if (!isTreasurePlaced) {
+            World world = player.getWorld();
+            int centerX = location.getBlockX();
+            int centerZ = location.getBlockZ();
+            int centerY = world.getHighestBlockYAt(centerX, centerZ) - 10;
 
-        createTreasureRoom(world, centerX, centerY, centerZ);
+            createTreasureRoom(world, centerX, centerY, centerZ);
 
-        world.getBlockAt(centerX, centerY - 1, centerZ).setType(Material.CHEST);
+            world.getBlockAt(centerX, centerY - 1, centerZ).setType(Material.CHEST);
 
-        BlockState state = world.getBlockAt(centerX, centerY - 1, centerZ).getState();
-        if (state instanceof Chest) {
-            Chest chest = (Chest) state;
-            Inventory chestInventory = chest.getInventory();
+            BlockState state = world.getBlockAt(centerX, centerY - 1, centerZ).getState();
+            if (state instanceof Chest) {
+                Chest chest = (Chest) state;
+                Inventory chestInventory = chest.getInventory();
 
-            ItemStack enchantedSword = new ItemStack(Material.DIAMOND_SWORD);
-            enchantedSword.addEnchantment(Enchantment.DAMAGE_ALL, 5);
-            enchantedSword.addEnchantment(Enchantment.LOOT_BONUS_MOBS, 3);
-            enchantedSword.addEnchantment(Enchantment.MENDING, 1);
-            ItemStack enchantedBow = new ItemStack(Material.BOW);
-            enchantedBow.addEnchantment(Enchantment.ARROW_DAMAGE, 3);
-            enchantedBow.addEnchantment(Enchantment.ARROW_FIRE, 1);
-            enchantedBow.addEnchantment(Enchantment.ARROW_INFINITE, 1);
-            enchantedBow.addEnchantment(Enchantment.MENDING, 1);
-            ItemStack diamondArmor = new ItemStack(Material.DIAMOND_CHESTPLATE);
-            ItemStack diamonds = new ItemStack(Material.DIAMOND, 5);
-            ItemStack emeralds = new ItemStack(Material.EMERALD, 3);
-            ItemStack ironIngots = new ItemStack(Material.IRON_INGOT, 10);
+                FileConfiguration config = getConfig();
+                ConfigurationSection lootSection = config.getConfigurationSection("loot");
+                if (lootSection != null) {
+                    for (String key : lootSection.getKeys(false)) {
+                        String path = "loot." + key;
+                        ItemStack lootItem = createLootItem(config, path);
 
-            chestInventory.addItem(enchantedSword, enchantedBow, diamondArmor, diamonds, emeralds, ironIngots);
-            //TODO: Better Loot
+                        if (lootItem != null) {
+                            chestInventory.setItem(config.getInt(path + ".slot"), lootItem);
+                            getLogger().info("Loaded loot item: " + lootItem.getType() + " in slot " + config.getInt(path + ".slot"));
+                        } else {
+                            getLogger().warning("Failed to load loot item for path: " + path);
+                        }
+                    }
+                } else {
+                    getLogger().warning("Could not find 'loot' section in the configuration.");
+                }
+            } else {
+                getLogger().warning("Chest not found at location: " + location);
+            }
+        } else {
+            getLogger().warning("Treasure already placed!");
         }
+    }
+
+    private synchronized void checkPlayerWin(Player player) {
+        UUID playerUUID = player.getUniqueId();
+        if (winner == null) {
+            winner = playerUUID;
+            winnername = player;
+            player.sendMessage(serverPrefix + ChatColor.GREEN + "Du hast die Schatzsuche gewonnen! Herzlichen Glückwunsch!");
+            getServer().broadcastMessage(serverPrefix + ChatColor.YELLOW + player.getName() + " hat den Schatz gefunden. Die Schatzsuche ist vorbei!");
+            getLogger().info("Treasurehunt ended, the winner is " + player.getName());
+            giveTreasure(player, treasureLocations.get(playerUUID));
+            reset();
+        } else {
+            getLogger().warning("Tried to add winner but winner already exists!");
+            player.sendMessage(serverPrefix + ChatColor.YELLOW + "Leider hast du nicht gewonnen. Versuche es beim nächsten Mal!");
+        }
+    }
+
+
+    private ItemStack createLootItem(FileConfiguration config, String path) {
+        ItemStack lootItem = null;
+
+        String materialName = config.getString(path + ".material");
+        Material material = Material.getMaterial(materialName);
+
+        if (material != null) {
+            lootItem = new ItemStack(material);
+
+            if (config.contains(path + ".enchantments")) {
+                ConfigurationSection enchantmentsSection = config.getConfigurationSection(path + ".enchantments");
+                for (String enchantmentKey : enchantmentsSection.getKeys(false)) {
+                    Enchantment enchantment = Enchantment.getByName(enchantmentKey);
+                    if (enchantment != null) {
+                        int level = enchantmentsSection.getInt(enchantmentKey);
+                        lootItem.addEnchantment(enchantment, level);
+                    }
+                }
+            }
+
+            if (config.contains(path + ".amount")) {
+                int amount = config.getInt(path + ".amount");
+                lootItem.setAmount(amount);
+            }
+        }
+
+        return lootItem;
     }
 
 
     private void createTreasureRoom(World world, int centerX, int centerY, int centerZ) {
-        for (int x = centerX - 2; x <= centerX + 2; x++) {
-            for (int z = centerZ - 2; z <= centerZ + 2; z++) {
-                for (int y = centerY - 2; y <= centerY; y++) {
-                    Material blockType;
-                    switch ((int) (Math.random() * 5)) {
-                        case 0:
-                            blockType = Material.DIAMOND_ORE;
-                            break;
-                        case 1:
-                            blockType = Material.EMERALD_ORE;
-                            break;
-                        case 2:
-                            blockType = Material.STONE_BRICKS;
-                            break;
-                        case 3:
-                            blockType = Material.IRON_ORE;
-                            break;
-                        case 4:
-                            blockType = Material.COAL_ORE;
-                            break;
-                        default:
-                            blockType = Material.STONE;
-                            break;
-                    }
-                    world.getBlockAt(x, y, z).setType(blockType);
+        int roomWidth = 10;
+        int roomHeight = 5;
+        int roomDepth = 10;
+
+        Material[] wallMaterials = {
+                Material.STONE_BRICKS,
+                Material.COBBLESTONE,
+                Material.MOSSY_COBBLESTONE
+        };
+
+        for (int x = centerX - roomWidth/2; x <= centerX + roomWidth/2; x++) {
+            for (int z = centerZ - roomDepth/2; z <= centerZ + roomDepth/2; z++) {
+                for (int y = centerY - roomHeight; y <= centerY + 1; y++) {
+                    world.getBlockAt(x, y, z).setType(Material.AIR);
                 }
             }
-            //TODO: Better Room generation
         }
+
+        for (int x = centerX - roomWidth / 2; x <= centerX + roomWidth / 2; x++) {
+            for (int z = centerZ - roomDepth / 2; z <= centerZ + roomDepth / 2; z++) {
+                for (int y = centerY - roomHeight; y <= centerY; y++) {
+                    if (x == centerX - roomWidth / 2 || x == centerX + roomWidth / 2 || z == centerZ - roomDepth / 2 || z == centerZ + roomDepth / 2) {
+                        Material wallMaterial = wallMaterials[(int) (Math.random() * wallMaterials.length)];
+                        world.getBlockAt(x, y, z).setType(wallMaterial);
+                    }
+                }
+            }
+        }
+
+        for (int x = centerX - roomWidth/2 + 1; x <= centerX + roomWidth/2 - 1; x++) {
+            for (int z = centerZ - roomDepth/2 + 1; z <= centerZ + roomDepth/2 - 1; z++) {
+                world.getBlockAt(x, centerY - roomHeight, z).setType(Material.SMITHING_TABLE);
+            }
+        }
+
+        for (int x = centerX - roomWidth/2; x <= centerX + roomWidth/2; x++) {
+            for (int z = centerZ - roomDepth/2 + 1; z <= centerZ + roomDepth/2 - 1; z++) {
+                world.getBlockAt(x, centerY + 1, z).setType(Material.CRACKED_STONE_BRICKS);
+            }
+        }
+
+        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ).setType(Material.DIAMOND_BLOCK);
+        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ).setType(Material.DIAMOND_BLOCK);
+        world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ).setType(Material.DIAMOND_BLOCK);
+
+        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ + 1).setType(Material.GOLD_BLOCK);
+        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ - 1).setType(Material.GOLD_BLOCK);
+        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ + 1).setType(Material.GOLD_BLOCK);
+        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ - 1).setType(Material.GOLD_BLOCK);
+        world.getBlockAt(centerX + 1, centerY - roomHeight + 1, centerZ).setType(Material.EMERALD_BLOCK);
+        world.getBlockAt(centerX - 1, centerY - roomHeight + 1, centerZ).setType(Material.EMERALD_BLOCK);
+        world.getBlockAt(centerX + 1, centerY - roomHeight + 2, centerZ).setType(Material.EMERALD_BLOCK);
+        world.getBlockAt(centerX - 1, centerY - roomHeight + 2, centerZ).setType(Material.EMERALD_BLOCK);
+        world.getBlockAt(centerX + 2, centerY - roomHeight + 1, centerZ).setType(Material.COAL_BLOCK);
+        world.getBlockAt(centerX - 2, centerY - roomHeight + 1, centerZ).setType(Material.COAL_BLOCK);
+        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ).setType(Material.ENCHANTING_TABLE);
+        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ + 2).setType(Material.BREWING_STAND);
+        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ - 2).setType(Material.ANVIL);
+        world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ + 1).setType(Material.TORCH);
+        world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ - 1).setType(Material.TORCH);
+
     }
+
 
     private void reset() {
         winner = null;
+        customTreasureLocation = null;
         playersInHunt.clear();
         treasureLocations.clear();
+        GamemodeWarningTold = false;
+        isTreasurePlaced = false;
     }
+
+}
 
 }
 
