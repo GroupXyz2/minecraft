@@ -17,39 +17,40 @@ public final class Mapcreator extends MapRenderer implements Listener {
     @Override
     public void render(MapView mapView, MapCanvas mapCanvas, Player player) {
         if (player.getWorld() == markerLocation.getWorld()) {
-            MapCursor cursor = mapCanvas.getCursors().getCursor(0);
-
-            // Entferne vorhandenen Cursor
-            cursor.setVisible(false);
+            Bukkit.getLogger().info("Player's world matches marker location world");
 
             int centerX = markerLocation.getBlockX() * 2;
             int centerZ = markerLocation.getBlockZ() * 2;
-            int cursorX = centerX - mapView.getCenterX();
-            int cursorZ = centerZ - mapView.getCenterZ();
+            int cursorX = (centerX - mapView.getCenterX()) % 128;
+            int cursorZ = (centerZ - mapView.getCenterZ()) % 128;
 
             MapCursor newCursor = new MapCursor((byte) cursorX, (byte) cursorZ, (byte) 0, MapCursor.Type.RED_POINTER, true);
             mapCanvas.getCursors().addCursor(newCursor);
+        } else {
+            Bukkit.getLogger().info("Player's world doesn't match marker location world");
         }
     }
 
-
-
-
-
-
     @Override
     public void initialize(MapView mapView) {
-        mapView.setScale(MapView.Scale.NORMAL); // Setzen Sie die Karten-Skala auf NORMAL
+        mapView.setScale(MapView.Scale.NORMAL);
     }
 
     public static short createTreasureMap(World world, Location location) {
-        MapView mapView = Bukkit.createMap(world);
-        mapView.getRenderers().forEach(mapView::removeRenderer); // Lösche vorhandene Renderer
+        try {
+            MapView mapView = Bukkit.createMap(world);
+            mapView.getRenderers().forEach(mapView::removeRenderer);
 
-        Mapcreator mapRenderer = new Mapcreator(location);
-        mapView.addRenderer(mapRenderer);
+            Mapcreator mapRenderer = new Mapcreator(location);
+            mapView.addRenderer(mapRenderer);
 
-        return (short) mapView.getId();
+            return (short) mapView.getId();
+        } catch (Exception e) {
+            e.printStackTrace();
+            Bukkit.getLogger().severe("Error creating treasure map: " + e.getMessage());
+            return -1;
+        }
     }
 }
+
 
