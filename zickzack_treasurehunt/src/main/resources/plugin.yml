@@ -13,3 +13,12 @@ commands:
     description: Show location of the Treasure!
     usage: /treasurehuntdebug
     permission: treasurehunt.op
+  treasurehuntreload:
+    description: Reload config
+    usage: /treasurehuntreload
+    permission: treasurehunt.op
+  treasurehuntcustom:
+    description: Start a Treasurehunt with a custom location
+    permission: treasurehunt.op
+  treasurehuntversion:
+    description: Show the version of Treasurehunt
