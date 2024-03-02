@@ -1,0 +1,37 @@
+# config.yml
+
+#prefix
+serverPrefix: "[&e&k1&r&eTreasure&3Hunt&k1&r] "
+
+#loot
+loot:
+  sword:
+    material: DIAMOND_SWORD
+    enchantments:
+      DAMAGE_ALL: 5
+      LOOT_BONUS_MOBS: 3
+      MENDING: 1
+    slot: 0
+  bow:
+    material: BOW
+    enchantments:
+      ARROW_DAMAGE: 3
+      ARROW_FIRE: 1
+      ARROW_INFINITE: 1
+      MENDING: 1
+    slot: 1
+  chestplate:
+    material: DIAMOND_CHESTPLATE
+    slot: 2
+  diamonds:
+    material: DIAMOND
+    amount: 5
+    slot: 3
+  emeralds:
+    material: EMERALD
+    amount: 3
+    slot: 4
+  iron_ingots:
+    material: IRON_INGOT
+    amount: 10
+    slot: 5
