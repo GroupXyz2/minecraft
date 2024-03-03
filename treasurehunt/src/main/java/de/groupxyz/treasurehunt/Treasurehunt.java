@@ -1,6 +1,5 @@
 package de.groupxyz.treasurehunt;
 
-import org.apache.commons.lang3.ObjectUtils;
 import org.bukkit.*;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
@@ -23,6 +22,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import de.groupxyz.treasurehunt.Mapcreator;
 import org.jetbrains.annotations.NotNull;
@@ -155,28 +155,6 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         startTreasureHunt(triggerPlayer);
     }
 
-    private void checkCustomTreasureArrival(Player triggerPlayer, Location customLocation) {
-        for (UUID uuid : playersInHunt) {
-            Player onlinePlayer = Bukkit.getPlayer(uuid);
-            if (onlinePlayer != null) {
-                if (onlinePlayer.getLocation().distance(customLocation) < 5.0 && onlinePlayer.getGameMode().equals(GameMode.SURVIVAL)) {
-                    winner = uuid;
-                    winnername = triggerPlayer;
-                    onlinePlayer.sendMessage(serverPrefix + ChatColor.GREEN + "Du hast die Schatzsuche gewonnen! Herzlichen Glückwunsch!");
-                    getServer().broadcastMessage(serverPrefix + ChatColor.YELLOW + onlinePlayer.getName() + " hat den Schatz gefunden. Die Schatzsuche ist vorbei!");
-                    getLogger().info("Treasurehunt ended, the winner is " + onlinePlayer.getName());
-                    reset();
-                } winnername.sendMessage(serverPrefix + ChatColor.YELLOW + ("Treasure room not build, you aren't in survival mode!"));
-                GamemodeWarningTold = true;
-            } else {
-                getLogger().warning("onlinePlayer is null!");
-            }
-        }
-
-        playersInHunt.clear();
-        reset();
-    }
-
     private void giveMapToPlayer(Player player, short mapId, Location treasureLocation) {
         ItemStack treasureMap = new ItemStack(Material.MAP);
         MapView mapView = Bukkit.getMap(mapId);
@@ -253,9 +231,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             }
 
         } catch (Exception e) {
-            if (!(e instanceof NullPointerException)) {
-                getLogger().warning("Treasurehunt Exception: " + e.getMessage());
-            }
+            getLogger().warning("Treasurehunt Exception: " + e.getMessage());
         }
     }
 
@@ -342,7 +318,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
                     Enchantment enchantment = Enchantment.getByName(enchantmentKey);
                     if (enchantment != null) {
                         int level = enchantmentsSection.getInt(enchantmentKey);
-                        lootItem.addEnchantment(enchantment, level);
+                        lootItem.addUnsafeEnchantment(enchantment, level);
                     }
                 }
             }
@@ -350,6 +326,20 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             if (config.contains(path + ".amount")) {
                 int amount = config.getInt(path + ".amount");
                 lootItem.setAmount(amount);
+            }
+
+            if (config.contains(path + ".name")) {
+                String customName = ChatColor.translateAlternateColorCodes('&', config.getString(path + ".name"));
+                ItemMeta meta = lootItem.getItemMeta();
+
+                if (config.contains(path + ".lore")) {
+                    List<String> lore = config.getStringList(path + ".lore");
+                    lore = lore.stream().map(line -> ChatColor.translateAlternateColorCodes('&', line)).collect(Collectors.toList());
+                    meta.setLore(lore);
+                }
+
+                meta.setDisplayName(customName);
+                lootItem.setItemMeta(meta);
             }
         }
 
@@ -430,8 +420,6 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         GamemodeWarningTold = false;
         isTreasurePlaced = false;
     }
-
-}
 
 }
 
