@@ -25,7 +25,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import de.groupxyz.treasurehunt.Mapcreator;
-import org.jetbrains.annotations.NotNull;
 
 public final class Treasurehunt extends JavaPlugin implements Listener {
 
@@ -94,7 +93,33 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
 
             startCustomTreasureHunt(player, new Location(player.getWorld(), x, y, z));
             return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntrange")) {
+            if (args.length < 2) {
+                player.sendMessage(ChatColor.RED + "Usage: /treasurehuntrange <min> <max>");
+                return true;
+            }
+            int min, max;
+            try {
+                min = Integer.parseInt(args[0]);
+                max = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                player.sendMessage(ChatColor.RED + "Invalid range values.");
+                return true;
+            }
+
+            if (min >= max) {
+                player.sendMessage(ChatColor.RED + "Minimum value must be less than maximum value.");
+                return true;
         }
+
+        config.set("treasureRange.min", min);
+        config.set("treasureRange.max", max);
+        saveTreasurehuntConfig();
+
+        player.sendMessage(ChatColor.GREEN + "Treasure range set to: " + min + " to " + max);
+        return true;
+    }
+
 
         return false;
     }
@@ -235,11 +260,12 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         }
     }
 
-
     private Location generateRandomLocation(World world) {
         Random random = new Random();
-        int x = random.nextInt(10000) - 5000; //Maybe: Tweaking
-        int z = random.nextInt(10000) - 5000;
+        int min = config.getInt("treasureRange.min", -10000);
+        int max = config.getInt("treasureRange.max", 10000);
+        int x = random.nextInt(max - min + 1) + min;
+        int z = random.nextInt(max - min + 1) + min;
         int y = world.getHighestBlockYAt(x, z);
 
         return new Location(world, x, y, z);
@@ -403,7 +429,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         world.getBlockAt(centerX - 1, centerY - roomHeight + 2, centerZ).setType(Material.EMERALD_BLOCK);
         world.getBlockAt(centerX + 2, centerY - roomHeight + 1, centerZ).setType(Material.COAL_BLOCK);
         world.getBlockAt(centerX - 2, centerY - roomHeight + 1, centerZ).setType(Material.COAL_BLOCK);
-        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ).setType(Material.ENCHANTING_TABLE);
+        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ).setType(Material.ANCIENT_DEBRIS);
         world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ + 2).setType(Material.BREWING_STAND);
         world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ - 2).setType(Material.ANVIL);
         world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ + 1).setType(Material.TORCH);
@@ -422,4 +448,3 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     }
 
 }
-
