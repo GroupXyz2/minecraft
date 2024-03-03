@@ -3,14 +3,14 @@ version: '${version}'
 main: de.groupxyz.treasurehunt.Treasurehunt
 api-version: '1.20'
 author: GroupXyz
-description: Treasurehunt Plugin initially created for the smp ZickZackNetwork.de
+description: Treasurehunt plugin initially created by GroupXyz for the german smp zickzacknetwork.de
 commands:
   treasurehunt:
-    description: Start a Treasurehunt-Event
+    description: Start a treasurehunt-event
     usage: /treasurehunt
     permission: treasurehunt.op
   treasurehuntdebug:
-    description: Show location of the Treasure!
+    description: Show location of the treasure!
     usage: /treasurehuntdebug
     permission: treasurehunt.op
   treasurehuntreload:
@@ -18,7 +18,11 @@ commands:
     usage: /treasurehuntreload
     permission: treasurehunt.op
   treasurehuntcustom:
-    description: Start a Treasurehunt with a custom location
+    description: Start a treasurehunt with a custom location
     permission: treasurehunt.op
   treasurehuntversion:
-    description: Show the version of Treasurehunt
+    description: Show the version of treasurehunt
+  treasurehuntrange:
+    description: Set the range in which the treasure should be generated
+    permission: treasurehunt.op
+
