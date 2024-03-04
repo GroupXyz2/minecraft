@@ -38,6 +38,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
 
     private File configFile;
     private FileConfiguration config;
+    private FileConfiguration languageConfig;
 
     String serverPrefix = loadServerPrefix();
 
@@ -46,6 +47,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("Treasurehunt by GroupXyz initialized!");
         loadTreasurehuntConfig();
+        loadLanguageConfig();
     }
 
     @Override
@@ -56,7 +58,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(ChatColor.RED +  "Dieser Befehl kann nur von Spielern ausgeführt werden.");
+            sender.sendMessage(getLocalizedString("comands.error_no_player"));
             return true;
         }
 
@@ -71,14 +73,14 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         } else if (command.getName().equalsIgnoreCase("treasurehuntreload")) {
             reloadConfig();
             loadServerPrefix();
-            player.sendMessage(serverPrefix + ChatColor.YELLOW + "Config reloaded!");
+            player.sendMessage(serverPrefix + getLocalizedString("config.config_reloaded"));
             return true;
         } else if (command.getName().equalsIgnoreCase("treasurehuntversion")) {
-            player.sendMessage(serverPrefix + ChatColor.GREEN + "The author of treasurehunt is GroupXyz and the version of Treasurehunt is: " + getPluginMeta().getVersion());
+            player.sendMessage(serverPrefix + getLocalizedString("config.author_version") + getPluginMeta().getVersion());
             return true;
         } else if (command.getName().equalsIgnoreCase("treasurehuntcustom")) {
             if (args.length < 3) {
-                player.sendMessage(ChatColor.RED + "Usage: /treasurehuntcustom <X> <Y> <Z>");
+                player.sendMessage(getLocalizedString("comands.treasurehuntcustom_usage"));
                 return true;
             }
             int x, y, z;
@@ -87,7 +89,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
                 y = Integer.parseInt(args[1]);
                 z = Integer.parseInt(args[2]);
             } catch (NumberFormatException e) {
-                player.sendMessage(ChatColor.RED + "Invalid Corrdinates.");
+                player.sendMessage(getLocalizedString("config.invalid_coordinates"));
                 return true;
             }
 
@@ -95,7 +97,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             return true;
         } else if (command.getName().equalsIgnoreCase("treasurehuntrange")) {
             if (args.length < 2) {
-                player.sendMessage(ChatColor.RED + "Usage: /treasurehuntrange <min> <max>");
+                player.sendMessage(getLocalizedString("comands.treasurehuntrange_usage"));
                 return true;
             }
             int min, max;
@@ -103,23 +105,43 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
                 min = Integer.parseInt(args[0]);
                 max = Integer.parseInt(args[1]);
             } catch (NumberFormatException e) {
-                player.sendMessage(ChatColor.RED + "Invalid range values.");
+                player.sendMessage(getLocalizedString("config.invalid_range"));
                 return true;
             }
 
             if (min >= max) {
-                player.sendMessage(ChatColor.RED + "Minimum value must be less than maximum value.");
+                player.sendMessage(getLocalizedString("config.invalid_minimum_value"));
                 return true;
+            }
+
+            config.set("treasureRange.min", min);
+            config.set("treasureRange.max", max);
+            saveTreasurehuntConfig();
+
+            player.sendMessage(getLocalizedString("config.treasure_range_set"));
+            return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntlanguage")) {
+            if (args.length < 1) {
+                player.sendMessage(getLocalizedString("commands.treasurehuntlanguage_usage"));
+                return true;
+            }
+
+            String langCode = args[0].toLowerCase();
+
+            if (!Arrays.asList("en", "de").contains(langCode)) {
+                player.sendMessage(getLocalizedString("config.invalid_language_code"));
+                return true;
+            }
+
+            config.set("language", langCode);
+            saveTreasurehuntConfig();
+            reloadConfig();
+
+            loadLanguageConfig();
+            player.sendMessage(getLocalizedString("config.language_set") + langCode);
+
+            return true;
         }
-
-        config.set("treasureRange.min", min);
-        config.set("treasureRange.max", max);
-        saveTreasurehuntConfig();
-
-        player.sendMessage(ChatColor.GREEN + "Treasure range set to: " + min + " to " + max);
-        return true;
-    }
-
 
         return false;
     }
@@ -149,9 +171,28 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         return ChatColor.translateAlternateColorCodes('&', config.getString("serverPrefix", "[&e&k1&r&eTreasure&3Hunt&k1&r] "));
     }
 
+    private void loadLanguageConfig() {
+        String langCode = getConfig().getString("language", "en");
+        String langFileName = langCode + ".yml";
+
+        File langFile = new File(getDataFolder(), langFileName);
+
+        if (!langFile.exists()) {
+            saveResource(langFileName, false);
+        }
+
+        languageConfig = YamlConfiguration.loadConfiguration(langFile);
+    }
+
+    private String getLocalizedString(String key, Object... args) {
+        String rawMessage = languageConfig.getString(key, "Translation not found for key: " + key);
+        return ChatColor.translateAlternateColorCodes('&', String.format(rawMessage, args));
+    }
+
+
+
     private void startTreasureHunt(Player triggerPlayer) {
-        playersInHunt.clear();
-        treasureLocations.clear();
+        reset();
 
         Location treasureLocation;
 
@@ -163,14 +204,14 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
 
         for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
             treasureLocations.put(onlinePlayer.getUniqueId(), treasureLocation);
-            giveCompassToPlayer(onlinePlayer, treasureLocation, ChatColor.YELLOW + "Schatz-Kompass");
+            giveCompassToPlayer(onlinePlayer, treasureLocation, getLocalizedString("messages.compass_name"));
             playersInHunt.add(onlinePlayer.getUniqueId());
         }
 
         short mapId = Mapcreator.createTreasureMap(triggerPlayer.getWorld(), treasureLocation);
 
         for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-            onlinePlayer.sendMessage(serverPrefix + ChatColor.DARK_AQUA + "Eine Schatzsuche hat begonnen!");
+            onlinePlayer.sendMessage(serverPrefix + getLocalizedString("messages.treasure_start"));
             getLogger().info("A Treasurehunt has started!");
         }
     }
@@ -192,7 +233,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             Bukkit.getScheduler().runTaskLater(this, () -> {
                 treasureMap.setDurability((short) 0);
                 player.getInventory().addItem(treasureMap);
-                player.sendMessage(serverPrefix + ChatColor.GREEN + "Du hast eine Schatzkarte erhalten! Folge den Hinweisen, um den Schatz zu finden.");
+                player.sendMessage(serverPrefix + getLocalizedString("messages.map_received"));
             }, 20L);
         } else {
             getLogger().warning("MapView for ID " + mapId + " is null.");
@@ -216,7 +257,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
                 player.getInventory().addItem(compass);
             }
 
-            player.sendMessage(serverPrefix + ChatColor.GREEN + "Du hast einen Schatz-Kompass erhalten! Folge ihm, um den Schatz zu finden.");
+            player.sendMessage(serverPrefix + getLocalizedString("messages.compass_received"));
         }, 20L);
     }
 
@@ -227,10 +268,9 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     private void showTreasureLocation(Player player) {
         if (treasureLocations.containsKey(player.getUniqueId())) {
             Location treasureLocation = treasureLocations.get(player.getUniqueId());
-            player.sendMessage(serverPrefix + ChatColor.YELLOW + "Schatzkoordinaten: X=" + treasureLocation.getBlockX() +
-                    ", Y=" + treasureLocation.getBlockY() + ", Z=" + treasureLocation.getBlockZ());
+            player.sendMessage(serverPrefix + getLocalizedString("messages.treasure_location") + treasureLocation.getBlockX() + ", Y=" + treasureLocation.getBlockY() + ", Z=" + treasureLocation.getBlockZ());
         } else {
-            player.sendMessage(serverPrefix + ChatColor.RED + "Du nimmst nicht an einer Schatzsuche teil.");
+            player.sendMessage(serverPrefix + getLocalizedString("messages.no_participation"));
         }
     }
 
@@ -243,11 +283,11 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             if (playersInHunt.contains(playerUUID)) {
                 Location treasureLocation = treasureLocations.get(playerUUID);
 
-                if (treasureLocation != null) {
+                if (treasureLocation != null && player.getWorld().equals(treasureLocation.getWorld())) {
                     if (player.getLocation().distance(treasureLocation) < 5.0 && player.getGameMode().equals(GameMode.SURVIVAL)) {
                         checkPlayerWin(player);
                     } else if (player.getLocation().distance(treasureLocation) < 5.0 && !player.getGameMode().equals(GameMode.SURVIVAL) && !GamemodeWarningTold) {
-                        player.sendMessage(serverPrefix + ChatColor.YELLOW + ("Treasure room not build, you aren't in survival mode!"));
+                        player.sendMessage(serverPrefix + ChatColor.YELLOW + getLocalizedString("messages.gamemode_warning"));
                         GamemodeWarningTold = true;
                     }
                 } else {
@@ -317,14 +357,14 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         if (winner == null) {
             winner = playerUUID;
             winnername = player;
-            player.sendMessage(serverPrefix + ChatColor.GREEN + "Du hast die Schatzsuche gewonnen! Herzlichen Glückwunsch!");
-            getServer().broadcastMessage(serverPrefix + ChatColor.YELLOW + player.getName() + " hat den Schatz gefunden. Die Schatzsuche ist vorbei!");
+            player.sendMessage(serverPrefix + getLocalizedString("messages.treasure_found"));
+            getServer().broadcastMessage(serverPrefix + ChatColor.YELLOW + player.getName() + getLocalizedString("messages.treasure_end"));
             getLogger().info("Treasurehunt ended, the winner is " + player.getName());
             giveTreasure(player, treasureLocations.get(playerUUID));
             reset();
         } else {
             getLogger().warning("Tried to add winner but winner already exists!");
-            player.sendMessage(serverPrefix + ChatColor.YELLOW + "Leider hast du nicht gewonnen. Versuche es beim nächsten Mal!");
+            player.sendMessage(serverPrefix + getLocalizedString("messages.treasure_not_found"));
         }
     }
 
