@@ -58,7 +58,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(getLocalizedString("comands.error_no_player"));
+            sender.sendMessage(getLocalizedString("commands.error_no_player"));
             return true;
         }
 
@@ -80,7 +80,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             return true;
         } else if (command.getName().equalsIgnoreCase("treasurehuntcustom")) {
             if (args.length < 3) {
-                player.sendMessage(getLocalizedString("comands.treasurehuntcustom_usage"));
+                player.sendMessage(getLocalizedString("commands.treasurehuntcustom_usage"));
                 return true;
             }
             int x, y, z;
@@ -97,7 +97,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             return true;
         } else if (command.getName().equalsIgnoreCase("treasurehuntrange")) {
             if (args.length < 2) {
-                player.sendMessage(getLocalizedString("comands.treasurehuntrange_usage"));
+                player.sendMessage(getLocalizedString("commands.treasurehuntrange_usage"));
                 return true;
             }
             int min, max;
