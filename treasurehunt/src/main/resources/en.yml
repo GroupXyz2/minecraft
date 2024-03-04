@@ -1,0 +1,33 @@
+# English
+
+commands:
+  error_no_player: "&cThis command can only be executed by players."
+  treasurehunt_usage: "&cUsage: /treasurehunt"
+  treasurehuntdebug_usage: "&cUsage: /treasurehuntdebug"
+  treasurehuntreload_usage: "&cUsage: /treasurehuntreload"
+  treasurehuntversion_usage: "&cUsage: /treasurehuntversion"
+  treasurehuntcustom_usage: "&cUsage: /treasurehuntcustom <X> <Y> <Z>"
+  treasurehuntrange_usage: "&cUsage: /treasurehuntrange <min> <max>"
+  treasurehuntlanguage_usage: "&cUsage: /treasurehuntlanguage <language_code>"
+
+messages:
+  treasure_start: "&3A treasure hunt has started!"
+  treasure_end: "&e has found the treasure, the hunt is over!"
+  treasure_found: "&aYou have won the treasure hunt! Congratulations!"
+  treasure_not_found: "&cSorry, you did not win this time. Better luck next time!"
+  treasure_location: "&eTreasure coordinates: "
+  compass_received: "&aYou have received a treasure compass! Follow it to find the treasure."
+  compass_name: "&6Treasure-compass"
+  map_received: "&aYou have received a treasure map! Follow it to find the treasure."
+  gamemode_warning: "&eTreasure room not build, you aren't in survival mode!"
+  no_participation: "&cYou don't participate in a treasurehunt!"
+
+config:
+  treasure_range_set: "&aTreasure range set to: "
+  config_reloaded: "&eConfig reloaded!"
+  author_version: "&aThe author of Treasurehunt is GroupXyz and the version of Treasurehunt is: "
+  invalid_coordinates: "&cInvalid coordinates!"
+  invalid_range: "&cInvalid range values!"
+  invalid_minimum_value: "&cMinimum value must be less than maximum value (eg.: -100 100)."
+  invalid_language_code: "&cInvalid language code. Supported languages: en, de"
+  language_set: "&aLanguage set to: "

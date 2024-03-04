@@ -1,0 +1,34 @@
+# German
+
+commands:
+  error_no_player: "&cDieser Befehl kann nur von einem Spieler ausgeführt werden."
+  treasurehunt_usage: "&cVerwendung: /treasurehunt"
+  treasurehuntdebug_usage: "&cVerwendung: /treasurehuntdebug"
+  treasurehuntreload_usage: "&cVerwendung: /treasurehuntreload"
+  treasurehuntversion_usage: "&cVerwendung: /treasurehuntversion"
+  treasurehuntcustom_usage: "&cVerwendung: /treasurehuntcustom <X> <Y> <Z>"
+  treasurehuntrange_usage: "&cVerwendung: /treasurehuntrange <min> <max>"
+  treasurehuntlanguage_usage: "&cVerwendung: /treasurehuntlanguage <Sprachcode>"
+
+messages:
+  treasure_start: "&3Eine Schatzsuche hat begonnen!"
+  treasure_end: "&e hat den Schatz gefunden, die Schatzsuche ist vorbei!"
+  treasure_found: "&aDu hast die Schatzsuche gewonnen, herzlichen Glückwunsch!"
+  treasure_not_found: "&cLeider hast du nicht gewonnen, versuche es beim nächsten Mal!"
+  treasure_location: "&eSchatzkoordinaten: "
+  compass_received: "&aDu hast einen Schatz-Kompass erhalten! Folge ihm, um den Schatz zu finden."
+  compass_name: "&6Schatz-Kompass"
+  map_received: "&aDu hast eine Schatzkarte erhalten! Folge ihr, um den Schatz zu finden."
+  gamemode_warning: "&eSchatzraum nicht gebaut, du bist nicht im Überlebensmodus!"
+  no_participation: "&cDu nimmst nicht an einer Schatzsuche teil!"
+
+config:
+  treasure_range_set: "&aSchatzbereich gesetzt auf: "
+  config_reloaded: "&eConfig neu geladen!"
+  author_version: "&aDer Autor von Treasurehunt ist GroupXyz und die Version ist: "
+  invalid_coordinates: "&cUngültige Koordinaten!"
+  invalid_range: "&cUngültige Längenangaben!"
+  invalid_minimum_value: "&cMinimum muss kleiner als Maximum sein (zb.: -100 100)."
+  invalid_language_code: "&cUngültiger Sprachcode. Unterstützte Sprachen: en, de"
+  language_set: "&aSprache gesetzt auf: "
+

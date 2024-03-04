@@ -25,4 +25,6 @@ commands:
   treasurehuntrange:
     description: Set the range in which the treasure should be generated
     permission: treasurehunt.op
-
+  treasurehuntlanguage:
+    description: Change the language of the treasurehunt plugin
+    permission: treasurehunt.op
