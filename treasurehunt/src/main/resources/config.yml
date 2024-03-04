@@ -12,11 +12,11 @@ loot:
       LOOT_BONUS_MOBS: 3
       MENDING: 1
     slot: 0
-    name: "&cTreasurehunter's Sword"
+    name: "&cTreasurehunter's &dSword"
     lore:
-      - '&7Mighty Sword'
-      - '&7of a brave,'
-      - '&7adventurer.'
+      - '&6Mighty Sword'
+      - '&6of a brave'
+      - '&6adventurer.'
   bow:
     material: BOW
     enchantments:
@@ -24,19 +24,19 @@ loot:
       ARROW_FIRE: 1
       ARROW_INFINITE: 1
       MENDING: 1
-    slot: 1
-    name: "&cTreasurehunter's Bow"
+    slot: 5
+    name: "&cTreasurehunter's &dBow"
     lore:
-      - '&7Mighty Bow'
-      - '&7of a brave'
-      - '&7adventurer.'
+      - '&6Mighty Bow'
+      - '&6of a brave'
+      - '&6adventurer.'
   chestplate:
     material: DIAMOND_CHESTPLATE
     slot: 2
   diamonds:
     material: DIAMOND
     amount: 5
-    slot: 3
+    slot: 8
   emeralds:
     material: EMERALD
     amount: 3
@@ -44,4 +44,4 @@ loot:
   iron_ingots:
     material: IRON_INGOT
     amount: 10
-    slot: 5
+    slot: 18
