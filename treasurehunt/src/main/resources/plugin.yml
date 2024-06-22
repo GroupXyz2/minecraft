@@ -28,3 +28,6 @@ commands:
   treasurehuntlanguage:
     description: Change the language of the treasurehunt plugin
     permission: treasurehunt.op
+  treasurehuntuseloottables:
+    description: Uses specified loot tables instead of items in config
+    permission: treasurehunt.op

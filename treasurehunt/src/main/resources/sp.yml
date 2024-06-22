@@ -1,0 +1,35 @@
+#Spanish
+
+commands:
+  error_no_player: "&cEste comando solo puede ser ejecutado por jugadores."
+  treasurehunt_usage: "&cUso: /treasurehunt"
+  treasurehuntdebug_usage: "&cUso: /treasurehuntdebug"
+  treasurehuntreload_usage: "&cUso: /treasurehuntreload"
+  treasurehuntversion_usage: "&cUso: /treasurehuntversion"
+  treasurehuntcustom_usage: "&cUso: /treasurehuntcustom <X> <Y> <Z>"
+  treasurehuntrange_usage: "&cUso: /treasurehuntrange <mínimo> <máximo>"
+  treasurehuntlanguage_usage: "&cUso: /treasurehuntlanguage <código_de_idioma>"
+  treasurehuntuseloottables_usage: "&cUso: /treasurehuntuseloottables <true|false>"
+
+messages:
+  treasure_start: "&3¡Ha comenzado una búsqueda del tesoro!"
+  treasure_end: "&e ha encontrado el tesoro, ¡la búsqueda ha terminado!"
+  treasure_found: "&a¡Has ganado la búsqueda del tesoro! ¡Felicidades, Buscar debajo de ti!"
+  treasure_not_found: "&cLo siento, esta vez no ganaste. ¡Mejor suerte la próxima vez!"
+  treasure_location: "&eCoordenadas del tesoro: "
+  compass_received: "&a¡Has recibido una brújula del tesoro! Síguela para encontrar el tesoro."
+  compass_name: "&6Brújula-del-tesoro"
+  map_received: "&a¡Has recibido un mapa del tesoro! Síguelo para encontrar el tesoro."
+  gamemode_warning: "&e¡La sala del tesoro no está construida, no estás en modo supervivencia!"
+  no_participation: "&c¡No participas en una búsqueda del tesoro!"
+
+config:
+  treasure_range_set: "&aRango del tesoro establecido en: "
+  config_reloaded: "&e¡Configuración recargada!"
+  author_version: "&aEl autor de Treasurehunt es GroupXyz y la versión de Treasurehunt es: "
+  invalid_coordinates: "&c¡Coordenadas inválidas!"
+  invalid_range: "&c¡Valores de rango inválidos!"
+  invalid_minimum_value: "&cEl valor mínimo debe ser menor que el valor máximo (por ejemplo: -100 100)."
+  invalid_language_code: "&cCódigo de idioma inválido. Idiomas admitidos: en, de, sp"
+  language_set: "&aIdioma establecido en: "
+  loottables_success: "&auseLootTables establecido en: "

@@ -9,11 +9,12 @@ commands:
   treasurehuntcustom_usage: "&cUsage: /treasurehuntcustom <X> <Y> <Z>"
   treasurehuntrange_usage: "&cUsage: /treasurehuntrange <min> <max>"
   treasurehuntlanguage_usage: "&cUsage: /treasurehuntlanguage <language_code>"
+  treasurehuntuseloottables_usage: "&cUsage: /treasurehuntuseloottables <true|false>"
 
 messages:
   treasure_start: "&3A treasure hunt has started!"
   treasure_end: "&e has found the treasure, the hunt is over!"
-  treasure_found: "&aYou have won the treasure hunt! Congratulations!"
+  treasure_found: "&aYou have won the treasure hunt! Congratulations, search below you!"
   treasure_not_found: "&cSorry, you did not win this time. Better luck next time!"
   treasure_location: "&eTreasure coordinates: "
   compass_received: "&aYou have received a treasure compass! Follow it to find the treasure."
@@ -29,5 +30,6 @@ config:
   invalid_coordinates: "&cInvalid coordinates!"
   invalid_range: "&cInvalid range values!"
   invalid_minimum_value: "&cMinimum value must be less than maximum value (eg.: -100 100)."
-  invalid_language_code: "&cInvalid language code. Supported languages: en, de"
+  invalid_language_code: "&cInvalid language code. Supported languages: en, de, sp"
   language_set: "&aLanguage set to: "
+  loottables_success: "&auseLootTables set to "
