@@ -16,6 +16,7 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.loot.LootTable;
 import org.bukkit.map.MapView;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -25,6 +26,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import de.groupxyz.treasurehunt.Mapcreator;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public final class Treasurehunt extends JavaPlugin implements Listener {
 
@@ -33,12 +36,14 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     private UUID winner = null;
     private Player winnername = null;
     private Boolean GamemodeWarningTold = false;
-    private boolean isTreasurePlaced = false;
-    private Location customTreasureLocation = null;
+    private Boolean isTreasurePlaced = false;
 
     private File configFile;
     private FileConfiguration config;
     private FileConfiguration languageConfig;
+    double @NotNull [] serverTPS = getServer().getTPS();
+    double recentTPS = serverTPS[serverTPS.length - 1];
+    String serverVersion = getServer().getName();
 
     String serverPrefix = loadServerPrefix();
 
@@ -48,6 +53,29 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         getLogger().info("Treasurehunt by GroupXyz initialized!");
         loadTreasurehuntConfig();
         loadLanguageConfig();
+        int pluginId = null; //REDACTED
+        Metrics metrics = new Metrics(this, pluginId);
+        metrics.addCustomChart(new Metrics.SimplePie("server_version", () -> {
+            return String.valueOf(serverVersion);
+        }));
+        metrics.addCustomChart(new Metrics.SimplePie("server_tps", () -> {
+            return String.valueOf(recentTPS);
+        }));
+        metrics.addCustomChart(new Metrics.SimplePie("server_prefix", () -> {
+            return String.valueOf(serverPrefix);
+        }));
+        metrics.addCustomChart(new Metrics.SimplePie("winner_count", () -> {
+            return String.valueOf(winnername);
+        }));
+        metrics.addCustomChart(new Metrics.SimplePie("participants_count", () -> {
+            return String.valueOf((long) playersInHunt.size());
+        }));
+        metrics.addCustomChart(new Metrics.SimplePie("treasure_count", () -> {
+            return String.valueOf((long) treasureLocations.size());
+        }));
+        metrics.addCustomChart(new Metrics.SimplePie("used_language", () -> {
+            return getConfig().getString("language", "en");
+        }));
     }
 
     @Override
@@ -65,7 +93,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         Player player = (Player) sender;
 
         if (command.getName().equalsIgnoreCase("treasurehunt")) {
-            startTreasureHunt(player);
+            startTreasureHunt(player, null);
             return true;
         } else if (command.getName().equalsIgnoreCase("treasurehuntdebug")) {
             showTreasureLocation(player);
@@ -118,7 +146,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             config.set("treasureRange.max", max);
             saveTreasurehuntConfig();
 
-            player.sendMessage(getLocalizedString("config.treasure_range_set"));
+            player.sendMessage(getLocalizedString("config.treasure_range_set") + " " + min + " " + max);
             return true;
         } else if (command.getName().equalsIgnoreCase("treasurehuntlanguage")) {
             if (args.length < 1) {
@@ -128,7 +156,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
 
             String langCode = args[0].toLowerCase();
 
-            if (!Arrays.asList("en", "de").contains(langCode)) {
+            if (!Arrays.asList("en", "de", "sp").contains(langCode)) {
                 player.sendMessage(getLocalizedString("config.invalid_language_code"));
                 return true;
             }
@@ -139,6 +167,37 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
 
             loadLanguageConfig();
             player.sendMessage(getLocalizedString("config.language_set") + langCode);
+
+            return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntuseloottables")) {
+            if (args.length < 1) {
+                player.sendMessage(getLocalizedString("commands.treasurehuntuseloottables_usage"));
+                return true;
+            }
+
+            if (!args[0].equalsIgnoreCase("true") && !args[0].equalsIgnoreCase("false")) {
+                player.sendMessage(getLocalizedString("commands.treasurehuntuseloottables_usage"));
+                return true;
+            }
+
+            boolean useLootTables;
+            try {
+                useLootTables = Boolean.parseBoolean(args[0]);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return true;
+            }
+
+            if (useLootTables) {
+                config.set("useLootTables", true);
+                saveTreasurehuntConfig();
+                player.sendMessage(getLocalizedString("config.loottables_success") + "true");
+                return true;
+            }
+
+            config.set("useLootTables", false);
+            saveTreasurehuntConfig();
+            player.sendMessage(getLocalizedString("config.loottables_success") + "false");
 
             return true;
         }
@@ -185,21 +244,19 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     }
 
     private String getLocalizedString(String key, Object... args) {
-        String rawMessage = languageConfig.getString(key, "Translation not found for key: " + key);
+        String rawMessage = languageConfig.getString(key, "Translation not found for key: " + key + " (If this happens after an Update, delete de.yml, en.yml, sp.yml in the plugin's config folder and restart)");
         return ChatColor.translateAlternateColorCodes('&', String.format(rawMessage, args));
     }
 
 
 
-    private void startTreasureHunt(Player triggerPlayer) {
+    private void startTreasureHunt(Player triggerPlayer, @Nullable Location treasureLocation) {
         reset();
 
-        Location treasureLocation;
-
-        if (customTreasureLocation== null) {
+        if (treasureLocation == null) {
             treasureLocation = generateRandomLocation(triggerPlayer.getWorld());
         } else {
-            treasureLocation = customTreasureLocation;
+            getLogger().info("Custom treasure location " + treasureLocation + " used");
         }
 
         for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
@@ -217,8 +274,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     }
 
     private void startCustomTreasureHunt(Player triggerPlayer, Location customLocation) {
-        customTreasureLocation = customLocation;
-        startTreasureHunt(triggerPlayer);
+        startTreasureHunt(triggerPlayer, customLocation);
     }
 
     private void giveMapToPlayer(Player player, short mapId, Location treasureLocation) {
@@ -312,6 +368,8 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     }
 
     private void giveTreasure(Player player, Location location) {
+        boolean useLootTables = config.getBoolean("useLootTables", false);
+
         if (!isTreasurePlaced) {
             World world = player.getWorld();
             int centerX = location.getBlockX();
@@ -327,22 +385,52 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
                 Chest chest = (Chest) state;
                 Inventory chestInventory = chest.getInventory();
 
-                FileConfiguration config = getConfig();
-                ConfigurationSection lootSection = config.getConfigurationSection("loot");
-                if (lootSection != null) {
-                    for (String key : lootSection.getKeys(false)) {
-                        String path = "loot." + key;
-                        ItemStack lootItem = createLootItem(config, path);
-
-                        if (lootItem != null) {
-                            chestInventory.setItem(config.getInt(path + ".slot"), lootItem);
-                            getLogger().info("Loaded loot item: " + lootItem.getType() + " in slot " + config.getInt(path + ".slot"));
-                        } else {
-                            getLogger().warning("Failed to load loot item for path: " + path);
+                if (useLootTables) {
+                    List<String> activeLootTables = new ArrayList<>();
+                    ConfigurationSection lootTablesSection = config.getConfigurationSection("lootTables");
+                    if (lootTablesSection != null) {
+                        for (String key : lootTablesSection.getKeys(false)) {
+                            String path = "lootTables." + key;
+                            if (config.getBoolean(path + ".active", false)) {
+                                activeLootTables.add(config.getString(path + ".name"));
+                            }
                         }
+                    } else {
+                        getLogger().warning("Loot tables section is null!");
+                    }
+
+                    if (!activeLootTables.isEmpty()) {
+                        Random random = new Random();
+                        String selectedLootTable = activeLootTables.get(random.nextInt(activeLootTables.size()));
+                        try {
+                            NamespacedKey namespacedKey = NamespacedKey.fromString(selectedLootTable);
+                            LootTable lootTable = Bukkit.getLootTable(namespacedKey);
+                            chest.setLootTable(lootTable);
+                            chest.update();
+                            getLogger().info("Loottable " + lootTable.toString() + " loaded in chest at " + chest.getLocation());
+                        } catch (IllegalArgumentException e) {
+                            getLogger().warning("Invalid loot table key: " + selectedLootTable);
+                        }
+                    } else {
+                        getLogger().warning("No active loot tables found in the configuration.");
                     }
                 } else {
-                    getLogger().warning("Could not find 'loot' section in the configuration.");
+                    ConfigurationSection lootSection = config.getConfigurationSection("loot");
+                    if (lootSection != null) {
+                        for (String key : lootSection.getKeys(false)) {
+                            String path = "loot." + key;
+                            ItemStack lootItem = createLootItem(config, path);
+
+                            if (lootItem != null) {
+                                chestInventory.setItem(config.getInt(path + ".slot"), lootItem);
+                                getLogger().info("Loaded loot item: " + lootItem.getType() + " in slot " + config.getInt(path + ".slot"));
+                            } else {
+                                getLogger().info("Didn't load loot item for path: " + path);
+                            }
+                        }
+                    } else {
+                        getLogger().warning("Could not find 'loot' section in the configuration.");
+                    }
                 }
             } else {
                 getLogger().warning("Chest not found at location: " + location);
@@ -368,7 +456,6 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         }
     }
 
-
     private ItemStack createLootItem(FileConfiguration config, String path) {
         ItemStack lootItem = null;
 
@@ -376,42 +463,46 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         Material material = Material.getMaterial(materialName);
 
         if (material != null) {
-            lootItem = new ItemStack(material);
+            double chance = config.getDouble(path + ".chance");
+            if (Math.random() * 100 <= chance) {
+                lootItem = new ItemStack(material);
 
-            if (config.contains(path + ".enchantments")) {
-                ConfigurationSection enchantmentsSection = config.getConfigurationSection(path + ".enchantments");
-                for (String enchantmentKey : enchantmentsSection.getKeys(false)) {
-                    Enchantment enchantment = Enchantment.getByName(enchantmentKey);
-                    if (enchantment != null) {
-                        int level = enchantmentsSection.getInt(enchantmentKey);
-                        lootItem.addUnsafeEnchantment(enchantment, level);
+                if (config.contains(path + ".enchantments")) {
+                    ConfigurationSection enchantmentsSection = config.getConfigurationSection(path + ".enchantments");
+                    for (String enchantmentKey : enchantmentsSection.getKeys(false)) {
+                        Enchantment enchantment = Enchantment.getByName(enchantmentKey);
+                        if (enchantment != null) {
+                            int level = enchantmentsSection.getInt(enchantmentKey);
+                            lootItem.addUnsafeEnchantment(enchantment, level);
+                        }
                     }
                 }
-            }
 
-            if (config.contains(path + ".amount")) {
-                int amount = config.getInt(path + ".amount");
-                lootItem.setAmount(amount);
-            }
-
-            if (config.contains(path + ".name")) {
-                String customName = ChatColor.translateAlternateColorCodes('&', config.getString(path + ".name"));
-                ItemMeta meta = lootItem.getItemMeta();
-
-                if (config.contains(path + ".lore")) {
-                    List<String> lore = config.getStringList(path + ".lore");
-                    lore = lore.stream().map(line -> ChatColor.translateAlternateColorCodes('&', line)).collect(Collectors.toList());
-                    meta.setLore(lore);
+                if (config.contains(path + ".amount")) {
+                    int amount = config.getInt(path + ".amount");
+                    lootItem.setAmount(amount);
                 }
 
-                meta.setDisplayName(customName);
-                lootItem.setItemMeta(meta);
+                if (config.contains(path + ".name")) {
+                    String customName = ChatColor.translateAlternateColorCodes('&', config.getString(path + ".name"));
+                    ItemMeta meta = lootItem.getItemMeta();
+
+                    if (config.contains(path + ".lore")) {
+                        List<String> lore = config.getStringList(path + ".lore");
+                        lore = lore.stream().map(line -> ChatColor.translateAlternateColorCodes('&', line)).collect(Collectors.toList());
+                        meta.setLore(lore);
+                    }
+
+                    meta.setDisplayName(customName);
+                    lootItem.setItemMeta(meta);
+                }
             }
         }
 
         return lootItem;
     }
 
+    //TODO: Make treasureroom customizable
 
     private void createTreasureRoom(World world, int centerX, int centerY, int centerZ) {
         int roomWidth = 10;
@@ -480,7 +571,6 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
 
     private void reset() {
         winner = null;
-        customTreasureLocation = null;
         playersInHunt.clear();
         treasureLocations.clear();
         GamemodeWarningTold = false;
