@@ -1,0 +1,6 @@
+name: discordsync
+version: '${version}'
+main: de.groupxyz.discordsync.Discordsync
+api-version: '1.20'
+author: GroupXyz
+prefix: dc
