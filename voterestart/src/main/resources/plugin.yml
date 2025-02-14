@@ -1,0 +1,14 @@
+name: voterestart
+version: '${version}'
+main: de.groupxyz.voterestart.Voterestart
+api-version: '1.20'
+author: GroupXyz
+commands:
+  voterestart:
+    usage: /voterestart
+    description: Starte eine Neustart-Umfrage
+  vrenable:
+    usage: /vrenable
+    permission: vr.op
+  vr:
+    usage: vr
