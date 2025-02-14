@@ -1,0 +1,19 @@
+name: maintenance
+version: '${version}'
+main: de.groupxyz.maintenance.Maintenance
+api-version: '1.20'
+author: GroupXyz
+prefix: mate
+commands:
+  maintenance:
+    description: Schaltet den Wartungsmodus ein oder aus.
+    usage: /maintenance
+    permission: maintenance.change
+permissions:
+  maintenance.bypass:
+    description: Erlaubt das Joinen während des Wartungsmodus.
+    default: op
+  maintenance.change:
+    description: Erlaubt das aendern des Wartungsmodus.
+    default: op
+
