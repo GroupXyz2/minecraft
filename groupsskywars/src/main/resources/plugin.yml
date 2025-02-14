@@ -1,0 +1,26 @@
+name: groupsskywars
+version: '${version}'
+main: de.groupxyz.groupsskywars.Groupsskywars
+api-version: '1.20'
+author: GroupXyz
+prefix: gsw
+commands:
+  round:
+    description: Verwaltet die SkyWars-Runde.
+    usage: /runde <start|stop|list> (mapname)
+    permission: gsw.ad
+  mapeditor:
+    description: Mapeditor
+    permission: gsw.ad
+  swreload:
+    description: Lade die Config neu
+    permission: gsw.ad
+  stats:
+    description: Statistiken
+  setfeature:
+    description: Setze ein Spawnpunk/Luckyblock
+    permission: gsw.op
+  swlanguage:
+    description: Bestimme die Sprache
+    permission: gsw.ad
+
