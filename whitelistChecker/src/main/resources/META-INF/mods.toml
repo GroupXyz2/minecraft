@@ -1,0 +1,27 @@
+# File: src/main/resources/META-INF/mods.toml
+modLoader="javafml"
+loaderVersion="[40,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="whitelistmod"
+version="1.0"
+displayName="Better Whitelist Mod"
+description='''
+Eine Verbesserung des Minecraft Whitelist-Systems.
+Überprüft Spieler automatisch über die Mojang API.
+'''
+
+[[dependencies.whitelistmod]]
+modId="forge"
+mandatory=true
+versionRange="[40,)"
+ordering="NONE"
+side="SERVER"
+
+[[dependencies.whitelistmod]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.18.2]"
+ordering="NONE"
+side="SERVER"
