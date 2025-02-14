@@ -1,0 +1,9 @@
+name: glide
+version: '${version}'
+main: de.groupxyz.glide.Glide
+api-version: '1.20'
+author: GroupXyz
+prefix: gl
+commands:
+  glide:
+    permission: gl.op
