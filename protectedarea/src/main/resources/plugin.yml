@@ -1,0 +1,13 @@
+name: protectedarea
+version: '${version}'
+main: de.groupxyz.protectedarea.Protectedarea
+api-version: '1.20'
+author: GroupXyz
+description: Region protection Plugin (/protect <p1|p2|apply|cancel>)
+commands:
+  protect:
+    description: Protects regions (/protect <p1|p2|apply|cancel|list>)
+    usage: /protect <p1|p2|apply [regionname]|cancel|list|reload|remove [regionname]>
+    aliases: [p]
+    permission: pa.op
+
