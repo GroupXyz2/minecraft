@@ -10,6 +10,8 @@ commands:
   treasurehuntrange_usage: "&cUso: /treasurehuntrange <mínimo> <máximo>"
   treasurehuntlanguage_usage: "&cUso: /treasurehuntlanguage <código_de_idioma>"
   treasurehuntuseloottables_usage: "&cUso: /treasurehuntuseloottables <true|false>"
+  treasurehuntautoremovecompass_usage: "&cUso: /treasurehuntautoremovecompass <true|false>"
+  treasurehuntloadstructure_usage: "&cUso: /treasurehuntloadtreasureroomfromstructure <true|false>"
 
 messages:
   treasure_start: "&3¡Ha comenzado una búsqueda del tesoro!"
@@ -22,6 +24,7 @@ messages:
   map_received: "&a¡Has recibido un mapa del tesoro! Síguelo para encontrar el tesoro."
   gamemode_warning: "&e¡La sala del tesoro no está construida, no estás en modo supervivencia!"
   no_participation: "&c¡No participas en una búsqueda del tesoro!"
+  no_glide: "&c¡El plugin glide no está instalado!"
 
 config:
   treasure_range_set: "&aRango del tesoro establecido en: "
@@ -32,4 +35,6 @@ config:
   invalid_minimum_value: "&cEl valor mínimo debe ser menor que el valor máximo (por ejemplo: -100 100)."
   invalid_language_code: "&cCódigo de idioma inválido. Idiomas admitidos: en, de, sp"
   language_set: "&aIdioma establecido en: "
-  loottables_success: "&auseLootTables establecido en: "
+  loottables_success: "&auseLootTables establecido en "
+  removecompass_success: "&aautoRemoveCompass establecido en "
+  loadstructure_success: "&aloadTreasureroomFromStructure establecido en "

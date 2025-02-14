@@ -2,8 +2,6 @@
 
 # For a list of enchantments see: https://jd.bukkit.org/org/bukkit/enchantments/Enchantment.html
 
-# Note: chance feature might not be working yet, please leave at 100 or use custom loot tables
-
 #prefix
 serverPrefix: "[&e&k1&r&eTreasure&3Hunt&k1&r] "
 
@@ -16,7 +14,6 @@ loot:
       LOOT_BONUS_MOBS: 3
       MENDING: 1
     slot: 0
-    chance: 100
     name: "&cTreasurehunter's &dSword"
     lore:
       - '&6Mighty Sword'
@@ -30,7 +27,6 @@ loot:
       ARROW_INFINITE: 1
       MENDING: 1
     slot: 5
-    chance: 100
     name: "&cTreasurehunter's &dBow"
     lore:
       - '&6Mighty Bow'
@@ -39,22 +35,18 @@ loot:
   chestplate:
     material: DIAMOND_CHESTPLATE
     slot: 2
-    chance: 100
   diamonds:
     material: DIAMOND
     amount: 5
     slot: 8
-    chance: 100
   emeralds:
     material: EMERALD
     amount: 3
     slot: 4
-    chance: 5
   iron_ingots:
     material: IRON_INGOT
     amount: 10
     slot: 18
-    chance: 100
 
 #optional loot tables
 useLootTables: false
@@ -68,3 +60,9 @@ lootTables:
   end_city_treasure:
     name: "minecraft:chests/end_city_treasure"
     active: false
+
+autoRemoveCompass: false
+loadTreasureroomFromStructure: false
+chestVerticalOffset: 1
+copyExampleSchematics: true
+generateStructure: true

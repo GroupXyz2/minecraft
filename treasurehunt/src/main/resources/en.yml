@@ -10,6 +10,8 @@ commands:
   treasurehuntrange_usage: "&cUsage: /treasurehuntrange <min> <max>"
   treasurehuntlanguage_usage: "&cUsage: /treasurehuntlanguage <language_code>"
   treasurehuntuseloottables_usage: "&cUsage: /treasurehuntuseloottables <true|false>"
+  treasurehuntautoremovecompass_usage: "&cUsage: /treasurehuntautoremovecompass <true|false>"
+  treasurehuntloadstructure_usage: "&cUsage: /treasurehuntloadtreasureroomfromstructure <true|false>"
 
 messages:
   treasure_start: "&3A treasure hunt has started!"
@@ -22,6 +24,7 @@ messages:
   map_received: "&aYou have received a treasure map! Follow it to find the treasure."
   gamemode_warning: "&eTreasure room not build, you aren't in survival mode!"
   no_participation: "&cYou don't participate in a treasurehunt!"
+  no_glide: "&cThe glide plugin is not installed!"
 
 config:
   treasure_range_set: "&aTreasure range set to: "
@@ -33,3 +36,5 @@ config:
   invalid_language_code: "&cInvalid language code. Supported languages: en, de, sp"
   language_set: "&aLanguage set to: "
   loottables_success: "&auseLootTables set to "
+  removecompass_success: "&aautoRemoveCompass set to "
+  loadstructure_success: "&aloadTreasureroomFromStructure set to "

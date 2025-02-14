@@ -10,6 +10,8 @@ commands:
   treasurehuntrange_usage: "&cVerwendung: /treasurehuntrange <min> <max>"
   treasurehuntlanguage_usage: "&cVerwendung: /treasurehuntlanguage <Sprachcode>"
   treasurehuntuseloottables_usage: "&cVerwendung: /treasurehuntuseloottables <true|false>"
+  treasurehuntautoremovecompass_usage: "&cVerwendung: /treasurehuntautoremovecompass <true|false>"
+  treasurehuntloadstructure_usage: "&cVerwendung: /treasurehuntloadtreasureroomfromstructure <true|false>"
 
 messages:
   treasure_start: "&3Eine Schatzsuche hat begonnen!"
@@ -22,6 +24,7 @@ messages:
   map_received: "&aDu hast eine Schatzkarte erhalten! Folge ihr, um den Schatz zu finden."
   gamemode_warning: "&eSchatzraum nicht gebaut, du bist nicht im Überlebensmodus!"
   no_participation: "&cDu nimmst nicht an einer Schatzsuche teil!"
+  no_glide: "&cDas glide plugin ist nicht installiert!"
 
 config:
   treasure_range_set: "&aSchatzbereich gesetzt auf: "
@@ -33,4 +36,6 @@ config:
   invalid_language_code: "&cUngültiger Sprachcode. Unterstützte Sprachen: en, de, sp"
   language_set: "&aSprache gesetzt auf: "
   loottables_success: "&auseLootTables gesetzt auf "
+  removecompass_success: "&aautoRemoveCompass gesetzt auf "
+  loadstructure_success: "&aloadTreasureroomFromStructure gesetzt auf "
 

@@ -4,10 +4,15 @@ main: de.groupxyz.treasurehunt.Treasurehunt
 api-version: '1.20'
 author: GroupXyz
 description: Treasurehunt plugin initially created by GroupXyz for the german smp zickzacknetwork.de
+prefix: thunt
 commands:
   treasurehunt:
     description: Start a treasurehunt-event
     usage: /treasurehunt
+    permission: treasurehunt.op
+  treasurehuntc:
+    description: Start a treasurehunt-event from console
+    usage: /treasurehuntc
     permission: treasurehunt.op
   treasurehuntdebug:
     description: Show location of the treasure!
@@ -30,4 +35,13 @@ commands:
     permission: treasurehunt.op
   treasurehuntuseloottables:
     description: Uses specified loot tables instead of items in config
+    permission: treasurehunt.op
+  treasurehuntcompassautoremove:
+    description: Reomves compass automatically after treasurehunt
+    permission: treasurehunt.op
+  treasurehuntloadtreasureroomfromstructure:
+    description: Loads treasureroom from treasure_room.schem file
+    permission: treasurehunt.op
+  treasurehuntglide:
+    description: Glide to the treasure, if the glide plugin is available
     permission: treasurehunt.op

@@ -1,10 +1,22 @@
 package de.groupxyz.treasurehunt;
 
+import com.sk89q.worldedit.WorldEditException;
+import com.sk89q.worldedit.bukkit.BukkitWorld;
+import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormat;
+import com.sk89q.worldedit.extent.clipboard.io.ClipboardReader;
+import com.sk89q.worldedit.function.mask.BlockTypeMask;
+import com.sk89q.worldedit.function.mask.Mask;
+import com.sk89q.worldedit.function.operation.Operation;
+import com.sk89q.worldedit.function.operation.Operations;
+import com.sk89q.worldedit.math.BlockVector3;
+
 import org.bukkit.*;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -12,22 +24,39 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.loot.LootTable;
 import org.bukkit.map.MapView;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.sk89q.worldedit.EditSession;
+import com.sk89q.worldedit.MaxChangedBlocksException;
+import com.sk89q.worldedit.WorldEdit;
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldedit.extent.clipboard.Clipboard;
+import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;
+import com.sk89q.worldedit.session.ClipboardHolder;
+
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 import de.groupxyz.treasurehunt.Mapcreator;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import javax.sound.sampled.Clip;
 
 public final class Treasurehunt extends JavaPlugin implements Listener {
 
@@ -35,6 +64,8 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     private Set<UUID> playersInHunt = new HashSet<>();
     private UUID winner = null;
     private Player winnername = null;
+    Location lastTreasureLocation = null;
+    Boolean isTreasurehuntRunning = false;
     private Boolean GamemodeWarningTold = false;
     private Boolean isTreasurePlaced = false;
 
@@ -53,7 +84,8 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         getLogger().info("Treasurehunt by GroupXyz initialized!");
         loadTreasurehuntConfig();
         loadLanguageConfig();
-        int pluginId = null; //REDACTED
+        copyDefaultSchematics();
+        int pluginId = 21507;
         Metrics metrics = new Metrics(this, pluginId);
         metrics.addCustomChart(new Metrics.SimplePie("server_version", () -> {
             return String.valueOf(serverVersion);
@@ -76,6 +108,11 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         metrics.addCustomChart(new Metrics.SimplePie("used_language", () -> {
             return getConfig().getString("language", "en");
         }));
+
+        if (!getConfig().contains("chestoffset")) {
+            getConfig().set("chestoffset", 1);
+            saveTreasurehuntConfig();
+        }
     }
 
     @Override
@@ -85,6 +122,20 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("treasurehuntc")) {
+            if (args.length < 1) {
+                sender.sendMessage("/treasurehuntc <world>");
+                return true;
+            }
+
+            if (!(sender instanceof ConsoleCommandSender)) {
+                return true;
+            }
+
+            startTreasureHuntConsole(null, args[0], sender);
+            return true;
+        }
+
         if (!(sender instanceof Player)) {
             sender.sendMessage(getLocalizedString("commands.error_no_player"));
             return true;
@@ -200,10 +251,100 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             player.sendMessage(getLocalizedString("config.loottables_success") + "false");
 
             return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntcompassautoremove")) {
+            if (args.length < 1) {
+                player.sendMessage(getLocalizedString("commands.treasurehuntcompassautoremove_usage"));
+                return true;
+            }
+
+            if (!args[0].equalsIgnoreCase("true") && !args[0].equalsIgnoreCase("false")) {
+                player.sendMessage(getLocalizedString("commands.treasurehuntcompassautoremove_usage"));
+                return true;
+            }
+
+            boolean autoRemoveCompass;
+            try {
+                autoRemoveCompass = Boolean.parseBoolean(args[0]);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return true;
+            }
+
+            if (autoRemoveCompass) {
+                config.set("autoRemoveCompass", true);
+                saveTreasurehuntConfig();
+                player.sendMessage(getLocalizedString("config.removecompass_success") + "true");
+                return true;
+            }
+
+            config.set("autoRemoveCompass", false);
+            saveTreasurehuntConfig();
+            player.sendMessage(getLocalizedString("config.removecompass_success") + "false");
+
+            return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntloadtreasureroomfromstructure")) {
+            if (args.length < 1) {
+                player.sendMessage(getLocalizedString("commands.treasurehuntloadstructure_usage"));
+                return true;
+            }
+
+            if (!args[0].equalsIgnoreCase("true") && !args[0].equalsIgnoreCase("false")) {
+                player.sendMessage(getLocalizedString("commands.treasurehuntloadstructure_usage"));
+                return true;
+            }
+
+            boolean autoRemoveCompass;
+            try {
+                autoRemoveCompass = Boolean.parseBoolean(args[0]);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return true;
+            }
+
+            if (autoRemoveCompass) {
+                config.set("loadTreasureroomFromStructure", true);
+                saveTreasurehuntConfig();
+                player.sendMessage(getLocalizedString("config.loadstructure_success") + "true");
+                return true;
+            }
+
+            config.set("loadTreasureroomFromStructure", false);
+            saveTreasurehuntConfig();
+            player.sendMessage(getLocalizedString("config.loadstructure_success") + "false");
+
+            return true;
+        } else if (command.getName().equalsIgnoreCase("treasurehuntglide")) {
+            glideToTreasure(player);
         }
 
         return false;
     }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        Inventory inventory = player.getInventory();
+        if (isTreasurehuntRunning) {
+            if (!playersInHunt.contains(player.getUniqueId())) {
+                boolean hasCompass = false;
+                String compassName = getLocalizedString("messages.compass_name");
+
+                for (ItemStack item : inventory.getContents()) {
+                    if (item != null && item.getType() == Material.COMPASS && item.getItemMeta().getDisplayName().equals(compassName)) {
+                        hasCompass = true;
+                        break;
+                    }
+                }
+
+                if (!hasCompass) {
+                    treasureLocations.put(player.getUniqueId(), lastTreasureLocation);
+                    giveCompassToPlayer(player, lastTreasureLocation, compassName);
+                    playersInHunt.add(player.getUniqueId());
+                }
+            }
+        }
+    }
+
 
     private void loadTreasurehuntConfig() {
         configFile = new File(getDataFolder(), "config.yml");
@@ -243,6 +384,37 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         languageConfig = YamlConfiguration.loadConfiguration(langFile);
     }
 
+    private void copyDefaultSchematics() {
+        File structuresFolder = new File(getDataFolder(), "structures");
+        if (!structuresFolder.exists()) {
+            structuresFolder.mkdirs();
+        }
+
+        Boolean copyEnabled = config.getBoolean("copyExampleSchematics");
+
+        if (copyEnabled) {
+            String[] schematics = {"example_treasure_room1", "example_treasure_room2", "example_treasure_room3.schem"};
+
+            for (String schematic : schematics) {
+                File targetFile = new File(structuresFolder, schematic);
+                if (!targetFile.exists()) {
+                    try (InputStream in = getResource("structures/" + schematic)) {
+                        if (in != null) {
+                            Files.copy(in, targetFile.toPath());
+                        } else {
+                            getLogger().warning("Resource not found: structures/" + schematic);
+                        }
+                    } catch (IOException e) {
+                        getLogger().severe("Failed to copy schematic file: " + schematic);
+                        e.printStackTrace();
+                    }
+                }
+            }
+            config.set("copyExampleSchematics", false);
+        }
+    }
+
+
     private String getLocalizedString(String key, Object... args) {
         String rawMessage = languageConfig.getString(key, "Translation not found for key: " + key + " (If this happens after an Update, delete de.yml, en.yml, sp.yml in the plugin's config folder and restart)");
         return ChatColor.translateAlternateColorCodes('&', String.format(rawMessage, args));
@@ -259,6 +431,9 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             getLogger().info("Custom treasure location " + treasureLocation + " used");
         }
 
+        lastTreasureLocation = treasureLocation;
+        isTreasurehuntRunning = true;
+
         for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
             treasureLocations.put(onlinePlayer.getUniqueId(), treasureLocation);
             giveCompassToPlayer(onlinePlayer, treasureLocation, getLocalizedString("messages.compass_name"));
@@ -266,6 +441,46 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         }
 
         short mapId = Mapcreator.createTreasureMap(triggerPlayer.getWorld(), treasureLocation);
+
+        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            onlinePlayer.sendMessage(serverPrefix + getLocalizedString("messages.treasure_start"));
+            getLogger().info("A Treasurehunt has started!");
+        }
+    }
+
+    private void startTreasureHuntConsole(@Nullable Location treasureLocation, String worldname, CommandSender sender) {
+        reset();
+
+        World startworld = null;
+
+        for (World world : Bukkit.getWorlds()) {
+            if (world.getName().equals(worldname)) {
+                startworld = world;
+                break;
+            }
+        }
+
+        if (startworld == null) {
+            sender.sendMessage(worldname + " not found!");
+            return;
+        }
+
+        if (treasureLocation == null) {
+            treasureLocation = generateRandomLocation(startworld);
+        } else {
+            getLogger().info("Custom treasure location " + treasureLocation + " used");
+        }
+
+        lastTreasureLocation = treasureLocation;
+        isTreasurehuntRunning = true;
+
+        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            treasureLocations.put(onlinePlayer.getUniqueId(), treasureLocation);
+            giveCompassToPlayer(onlinePlayer, treasureLocation, getLocalizedString("messages.compass_name"));
+            playersInHunt.add(onlinePlayer.getUniqueId());
+        }
+
+        short mapId = Mapcreator.createTreasureMap(startworld, treasureLocation);
 
         for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
             onlinePlayer.sendMessage(serverPrefix + getLocalizedString("messages.treasure_start"));
@@ -330,6 +545,22 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         }
     }
 
+    private void glideToTreasure(Player player) {
+        if (treasureLocations.containsKey(player.getUniqueId())) {
+            Location treasureLocation = treasureLocations.get(player.getUniqueId());
+            Plugin glide = Bukkit.getPluginManager().getPlugin("glide");
+            if (glide != null && glide.isEnabled()) {
+                String commandToExecute = "glide " + treasureLocation.getBlockX() + " " + treasureLocation.getBlockY() + " " + treasureLocation.getBlockZ();
+                player.performCommand(commandToExecute);
+
+            } else {
+                player.sendMessage(serverPrefix + getLocalizedString("messages.no_glide"));
+            }
+        } else {
+            player.sendMessage(serverPrefix + getLocalizedString("messages.no_participation"));
+        }
+    }
+
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
@@ -376,11 +607,18 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             int centerZ = location.getBlockZ();
             int centerY = world.getHighestBlockYAt(centerX, centerZ) - 10;
 
-            createTreasureRoom(world, centerX, centerY, centerZ);
+            boolean generateStructure = config.getBoolean("generateStructure", true);
 
-            world.getBlockAt(centerX, centerY - 1, centerZ).setType(Material.CHEST);
+            if (generateStructure) {
+                createTreasureRoom(world, centerX, centerY, centerZ);
+            }
 
-            BlockState state = world.getBlockAt(centerX, centerY - 1, centerZ).getState();
+            //int chestoffset = config.getInt("chestoffset", 1);
+            int chestoffset = 3;
+
+            world.getBlockAt(centerX, centerY + chestoffset, centerZ).setType(Material.CHEST);
+
+            BlockState state = world.getBlockAt(centerX, centerY + chestoffset, centerZ).getState();
             if (state instanceof Chest) {
                 Chest chest = (Chest) state;
                 Inventory chestInventory = chest.getInventory();
@@ -442,6 +680,7 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
 
     private synchronized void checkPlayerWin(Player player) {
         UUID playerUUID = player.getUniqueId();
+        boolean autoRemoveCompass = config.getBoolean("autoRemoveCompass", false);
         if (winner == null) {
             winner = playerUUID;
             winnername = player;
@@ -449,12 +688,29 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
             getServer().broadcastMessage(serverPrefix + ChatColor.YELLOW + player.getName() + getLocalizedString("messages.treasure_end"));
             getLogger().info("Treasurehunt ended, the winner is " + player.getName());
             giveTreasure(player, treasureLocations.get(playerUUID));
+            isTreasurehuntRunning = false;
+            if (autoRemoveCompass) {
+                removeCompassFromAllPlayers();
+            }
+
             reset();
         } else {
             getLogger().warning("Tried to add winner but winner already exists!");
             player.sendMessage(serverPrefix + getLocalizedString("messages.treasure_not_found"));
         }
     }
+
+    private void removeCompassFromAllPlayers() {
+        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            for (ItemStack item : onlinePlayer.getInventory().getContents()) {
+                String compassName = getLocalizedString("messages.compass_name");
+                if (item != null && item.getType() == Material.COMPASS && item.getItemMeta().getDisplayName().equals(compassName)) {
+                    onlinePlayer.getInventory().remove(item);
+                }
+            }
+        }
+    }
+
 
     private ItemStack createLootItem(FileConfiguration config, String path) {
         ItemStack lootItem = null;
@@ -463,111 +719,171 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
         Material material = Material.getMaterial(materialName);
 
         if (material != null) {
-            double chance = config.getDouble(path + ".chance");
-            if (Math.random() * 100 <= chance) {
-                lootItem = new ItemStack(material);
+            lootItem = new ItemStack(material);
 
-                if (config.contains(path + ".enchantments")) {
-                    ConfigurationSection enchantmentsSection = config.getConfigurationSection(path + ".enchantments");
+            if (config.contains(path + ".enchantments")) {
+                ConfigurationSection enchantmentsSection = config.getConfigurationSection(path + ".enchantments");
                     for (String enchantmentKey : enchantmentsSection.getKeys(false)) {
-                        Enchantment enchantment = Enchantment.getByName(enchantmentKey);
-                        if (enchantment != null) {
-                            int level = enchantmentsSection.getInt(enchantmentKey);
-                            lootItem.addUnsafeEnchantment(enchantment, level);
-                        }
+                    Enchantment enchantment = Enchantment.getByName(enchantmentKey);
+                    if (enchantment != null) {
+                        int level = enchantmentsSection.getInt(enchantmentKey);
+                        lootItem.addUnsafeEnchantment(enchantment, level);
                     }
                 }
+            }
 
-                if (config.contains(path + ".amount")) {
-                    int amount = config.getInt(path + ".amount");
-                    lootItem.setAmount(amount);
+            if (config.contains(path + ".amount")) {
+                int amount = config.getInt(path + ".amount");
+                lootItem.setAmount(amount);
+            }
+
+            if (config.contains(path + ".name")) {
+                String customName = ChatColor.translateAlternateColorCodes('&', config.getString(path + ".name"));
+                ItemMeta meta = lootItem.getItemMeta();
+
+                if (config.contains(path + ".lore")) {
+                    List<String> lore = config.getStringList(path + ".lore");
+                    lore = lore.stream().map(line -> ChatColor.translateAlternateColorCodes('&', line)).collect(Collectors.toList());
+                    meta.setLore(lore);
                 }
 
-                if (config.contains(path + ".name")) {
-                    String customName = ChatColor.translateAlternateColorCodes('&', config.getString(path + ".name"));
-                    ItemMeta meta = lootItem.getItemMeta();
-
-                    if (config.contains(path + ".lore")) {
-                        List<String> lore = config.getStringList(path + ".lore");
-                        lore = lore.stream().map(line -> ChatColor.translateAlternateColorCodes('&', line)).collect(Collectors.toList());
-                        meta.setLore(lore);
-                    }
-
-                    meta.setDisplayName(customName);
-                    lootItem.setItemMeta(meta);
-                }
+                meta.setDisplayName(customName);
+                lootItem.setItemMeta(meta);
             }
         }
 
         return lootItem;
     }
 
-    //TODO: Make treasureroom customizable
-
     private void createTreasureRoom(World world, int centerX, int centerY, int centerZ) {
-        int roomWidth = 10;
-        int roomHeight = 5;
-        int roomDepth = 10;
 
-        Material[] wallMaterials = {
-                Material.STONE_BRICKS,
-                Material.COBBLESTONE,
-                Material.MOSSY_COBBLESTONE
-        };
+        boolean loadTreasureroomFromStructure = config.getBoolean("loadTreasureroomFromStructure", false);
 
-        for (int x = centerX - roomWidth/2; x <= centerX + roomWidth/2; x++) {
-            for (int z = centerZ - roomDepth/2; z <= centerZ + roomDepth/2; z++) {
-                for (int y = centerY - roomHeight; y <= centerY + 1; y++) {
-                    world.getBlockAt(x, y, z).setType(Material.AIR);
-                }
-            }
-        }
+        if (loadTreasureroomFromStructure) {
+            pasteStructureFromSchematic(world, new Location(world, centerX, centerY, centerZ));
+        } else {
 
-        for (int x = centerX - roomWidth / 2; x <= centerX + roomWidth / 2; x++) {
-            for (int z = centerZ - roomDepth / 2; z <= centerZ + roomDepth / 2; z++) {
-                for (int y = centerY - roomHeight; y <= centerY; y++) {
-                    if (x == centerX - roomWidth / 2 || x == centerX + roomWidth / 2 || z == centerZ - roomDepth / 2 || z == centerZ + roomDepth / 2) {
-                        Material wallMaterial = wallMaterials[(int) (Math.random() * wallMaterials.length)];
-                        world.getBlockAt(x, y, z).setType(wallMaterial);
+            int roomWidth = 10;
+            int roomHeight = 5;
+            int roomDepth = 10;
+
+            Material[] wallMaterials = {
+                    Material.STONE_BRICKS,
+                    Material.COBBLESTONE,
+                    Material.MOSSY_COBBLESTONE
+            };
+
+            for (int x = centerX - roomWidth / 2; x <= centerX + roomWidth / 2; x++) {
+                for (int z = centerZ - roomDepth / 2; z <= centerZ + roomDepth / 2; z++) {
+                    for (int y = centerY - roomHeight; y <= centerY + 1; y++) {
+                        world.getBlockAt(x, y, z).setType(Material.AIR);
                     }
                 }
             }
-        }
 
-        for (int x = centerX - roomWidth/2 + 1; x <= centerX + roomWidth/2 - 1; x++) {
-            for (int z = centerZ - roomDepth/2 + 1; z <= centerZ + roomDepth/2 - 1; z++) {
-                world.getBlockAt(x, centerY - roomHeight, z).setType(Material.SMITHING_TABLE);
+            for (int x = centerX - roomWidth / 2; x <= centerX + roomWidth / 2; x++) {
+                for (int z = centerZ - roomDepth / 2; z <= centerZ + roomDepth / 2; z++) {
+                    for (int y = centerY - roomHeight; y <= centerY; y++) {
+                        if (x == centerX - roomWidth / 2 || x == centerX + roomWidth / 2 || z == centerZ - roomDepth / 2 || z == centerZ + roomDepth / 2) {
+                            Material wallMaterial = wallMaterials[(int) (Math.random() * wallMaterials.length)];
+                            world.getBlockAt(x, y, z).setType(wallMaterial);
+                        }
+                    }
+                }
             }
-        }
 
-        for (int x = centerX - roomWidth/2; x <= centerX + roomWidth/2; x++) {
-            for (int z = centerZ - roomDepth/2 + 1; z <= centerZ + roomDepth/2 - 1; z++) {
-                world.getBlockAt(x, centerY + 1, z).setType(Material.CRACKED_STONE_BRICKS);
+            for (int x = centerX - roomWidth / 2 + 1; x <= centerX + roomWidth / 2 - 1; x++) {
+                for (int z = centerZ - roomDepth / 2 + 1; z <= centerZ + roomDepth / 2 - 1; z++) {
+                    world.getBlockAt(x, centerY - roomHeight, z).setType(Material.SMITHING_TABLE);
+                }
             }
+
+            for (int x = centerX - roomWidth / 2; x <= centerX + roomWidth / 2; x++) {
+                for (int z = centerZ - roomDepth / 2 + 1; z <= centerZ + roomDepth / 2 - 1; z++) {
+                    world.getBlockAt(x, centerY + 1, z).setType(Material.CRACKED_STONE_BRICKS);
+                }
+            }
+
+            world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ).setType(Material.DIAMOND_BLOCK);
+            world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ).setType(Material.DIAMOND_BLOCK);
+            world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ).setType(Material.DIAMOND_BLOCK);
+
+            world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ + 1).setType(Material.GOLD_BLOCK);
+            world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ - 1).setType(Material.GOLD_BLOCK);
+            world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ + 1).setType(Material.GOLD_BLOCK);
+            world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ - 1).setType(Material.GOLD_BLOCK);
+            world.getBlockAt(centerX + 1, centerY - roomHeight + 1, centerZ).setType(Material.EMERALD_BLOCK);
+            world.getBlockAt(centerX - 1, centerY - roomHeight + 1, centerZ).setType(Material.EMERALD_BLOCK);
+            world.getBlockAt(centerX + 1, centerY - roomHeight + 2, centerZ).setType(Material.EMERALD_BLOCK);
+            world.getBlockAt(centerX - 1, centerY - roomHeight + 2, centerZ).setType(Material.EMERALD_BLOCK);
+            world.getBlockAt(centerX + 2, centerY - roomHeight + 1, centerZ).setType(Material.COAL_BLOCK);
+            world.getBlockAt(centerX - 2, centerY - roomHeight + 1, centerZ).setType(Material.COAL_BLOCK);
+            world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ).setType(Material.ANCIENT_DEBRIS);
+            world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ + 2).setType(Material.BREWING_STAND);
+            world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ - 2).setType(Material.ANVIL);
+            world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ + 1).setType(Material.TORCH);
+            world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ - 1).setType(Material.TORCH);
         }
-
-        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ).setType(Material.DIAMOND_BLOCK);
-        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ).setType(Material.DIAMOND_BLOCK);
-        world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ).setType(Material.DIAMOND_BLOCK);
-
-        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ + 1).setType(Material.GOLD_BLOCK);
-        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ - 1).setType(Material.GOLD_BLOCK);
-        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ + 1).setType(Material.GOLD_BLOCK);
-        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ - 1).setType(Material.GOLD_BLOCK);
-        world.getBlockAt(centerX + 1, centerY - roomHeight + 1, centerZ).setType(Material.EMERALD_BLOCK);
-        world.getBlockAt(centerX - 1, centerY - roomHeight + 1, centerZ).setType(Material.EMERALD_BLOCK);
-        world.getBlockAt(centerX + 1, centerY - roomHeight + 2, centerZ).setType(Material.EMERALD_BLOCK);
-        world.getBlockAt(centerX - 1, centerY - roomHeight + 2, centerZ).setType(Material.EMERALD_BLOCK);
-        world.getBlockAt(centerX + 2, centerY - roomHeight + 1, centerZ).setType(Material.COAL_BLOCK);
-        world.getBlockAt(centerX - 2, centerY - roomHeight + 1, centerZ).setType(Material.COAL_BLOCK);
-        world.getBlockAt(centerX, centerY - roomHeight + 2, centerZ).setType(Material.ANCIENT_DEBRIS);
-        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ + 2).setType(Material.BREWING_STAND);
-        world.getBlockAt(centerX, centerY - roomHeight + 1, centerZ - 2).setType(Material.ANVIL);
-        world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ + 1).setType(Material.TORCH);
-        world.getBlockAt(centerX, centerY - roomHeight + 3, centerZ - 1).setType(Material.TORCH);
 
     }
 
+    private void pasteStructureFromSchematic(org.bukkit.World bukkitWorld, Location location) {
+        File folder = new File(getDataFolder(), "structures");
+        if (!folder.exists() || !folder.isDirectory()) {
+            getLogger().warning("Structures folder not found.");
+            return;
+        }
+
+        File[] files = folder.listFiles((dir, name) -> name.endsWith(".schem") || name.endsWith(".schematic"));
+        if (files == null || files.length == 0) {
+            getLogger().warning("No schematic files found in the structures folder.");
+            return;
+        }
+
+        File structureFile = files[new Random().nextInt(files.length)];
+        getLogger().info("Selected random structure file: " + structureFile.getName());
+
+        String structureName = structureFile.getName();
+
+        Clipboard clipboard;
+        try (FileInputStream inputStream = new FileInputStream(structureFile)) {
+            ClipboardFormat format = ClipboardFormats.findByFile(structureFile);
+            if (format == null) {
+                getLogger().warning("Unknown clipboard format for file: " + structureFile.getName());
+                return;
+            }
+
+            try (ClipboardReader reader = format.getReader(inputStream)) {
+                clipboard = reader.read();
+            }
+        } catch (IOException e) {
+            getLogger().log(Level.SEVERE, "Failed to load structure: " + structureName, e);
+            return;
+        }
+
+        com.sk89q.worldedit.world.World adaptedWorld = new BukkitWorld(bukkitWorld);
+        EditSession editSession = WorldEdit.getInstance().newEditSession(adaptedWorld);
+
+        Mask mask = blockVector3 -> {
+            Block block = location.getBlock();
+            return block.getType() != Material.CHEST;
+        };
+
+
+        try {
+            Operation operation = new ClipboardHolder(clipboard)
+                    .createPaste(editSession)
+                    .to(BukkitAdapter.asBlockVector(location))
+                    .maskSource(mask)
+                    .ignoreAirBlocks(false)
+                    .build();
+
+            Operations.complete(operation);
+            editSession.flushSession();
+        } catch (Exception e) {
+            getLogger().log(Level.SEVERE, "Failed to paste structure: " + structureName, e);
+        }
+    }
 
     private void reset() {
         winner = null;
@@ -578,3 +894,4 @@ public final class Treasurehunt extends JavaPlugin implements Listener {
     }
 
 }
+

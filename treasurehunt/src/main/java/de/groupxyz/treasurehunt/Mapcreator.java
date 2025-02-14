@@ -1,3 +1,5 @@
+//Class archived, not in use
+
 package de.groupxyz.treasurehunt;
 
 import org.bukkit.Bukkit;
@@ -52,5 +54,4 @@ public final class Mapcreator extends MapRenderer implements Listener {
         }
     }
 }
-
 
