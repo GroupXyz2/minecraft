@@ -1,0 +1,19 @@
+#config
+
+servers:
+  server1:
+    name: "Survival"
+    description: "The survival world"
+    material: "DIAMOND_SWORD"
+    slot: 0
+  server2:
+    name: "Minigame1"
+    description: "The minigame"
+    material: "JUKEBOX"
+    slot: 4
+  server3:
+    name: "Lobby"
+    description: "The lobby server"
+    material: "GRASS_BLOCK"
+    slot: 8
+compass_slot: 4

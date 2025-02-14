@@ -1,0 +1,9 @@
+name: serverselector
+version: '${version}'
+main: de.groupxyz.serverselector.Serverselector
+api-version: '1.20'
+author: GroupXyz
+commands:
+  serverselector:
+    description: Enable or disable the serverselector.
+    permission: serverselector.op
