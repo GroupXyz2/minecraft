@@ -1,0 +1,13 @@
+name: sendplayer
+version: '${version}'
+main: de.groupxyz.sendplayer.Sendplayer
+api-version: '1.20'
+author: GroupXyz
+description: Send Player around on your BungeeCord Network
+commands:
+  sendplayer:
+    usage: /sendplayer
+    permission: sp.op
+  tphere:
+    usage: /tphere
+    permission: sp.op
