@@ -1,0 +1,4 @@
+name: cmdsign
+version: '${version}'
+main: de.groupxyz.cmdsign.Cmdsign
+api-version: '1.20'

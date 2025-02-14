@@ -1,0 +1,4 @@
+# Befehl, der beim joinen eines Spielers ausgeführt wird
+# {player}, um den Namen des Spielers einzufügen
+join-command: "say Willkommen, {player}!"
+first-join-only: false
