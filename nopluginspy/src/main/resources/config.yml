@@ -1,0 +1,35 @@
+# Add and Config commands to be blocked.
+# List-types:
+# blacklist, whitelist
+# Modes:
+# Mode "equals" means that the command has to match entirely,
+# Mode "startsWith" means, that the command just has to start with this word or letter.
+# Commands:
+# Below are already some common maliciously used commands, you can just add some in the same pattern.
+list-type: blacklist
+blocked_message: "&r You can't do this."
+commands:
+  pl:
+    command: /pl
+    mode: equals
+  about:
+    command: /about
+    mode: equals
+  bukkit:
+    command: /bukkit
+    mode: startsWith
+  icanhasbukkit:
+    command: /icanhasbukkit
+    mode: equals
+  plugins:
+    command: /plugins
+    mode: equals
+  version:
+    command: /version
+    mode: startsWith
+  tpworld:
+    command: /tpworld
+    mode: startsWith
+  we:
+    command: /we
+    mode: equals
