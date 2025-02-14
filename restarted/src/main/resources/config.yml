@@ -1,0 +1,10 @@
+restart_times:         #Uhrzeit der täglichen Restarts
+  - "03:00"
+  - "13:00"
+  - "18:00"
+announcement_times:    #Announcements vor dem Restart in Minuten
+  - 60
+  - 30
+  - 10
+  - 5
+  - 1

@@ -1,0 +1,6 @@
+name: restarted
+version: '${version}'
+main: de.groupxyz.restarted.Restarted
+api-version: '1.20'
+author: GroupXyz
+prefix: REST
