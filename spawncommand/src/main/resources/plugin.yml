@@ -1,0 +1,14 @@
+name: spawncommand
+version: '${version}'
+main: de.groupxyz.spawncommand.Spawncommand
+api-version: '1.20'
+author: GroupXyz
+description: simple spawn command
+commands:
+  spawn:
+    usage: /spawn
+    aliases:
+      - s
+  serverspawn:
+    usage: /serverspawn
+    permission: ss.op
