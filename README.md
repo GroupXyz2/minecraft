@@ -1,4 +1,4 @@
-# minecraft
+# overview
 My Minecraft related Projects
-# note
+# projects
 Almost everything are plugins except whitelistChecker
