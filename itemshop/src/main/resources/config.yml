@@ -1,0 +1,19 @@
+items:
+  diamond_sword:
+    slot: 0
+    material: DIAMOND_SWORD
+    amount: 1
+    name: "&bLegendary Sword"
+    lore:
+      - "&7This Sword has mighty forces."
+    enchantments:
+      - DAMAGE_ALL:5
+    price: 1000.0
+
+  golden_apple:
+    slot: 1
+    material: GOLDEN_APPLE
+    amount: 5
+    name: "&6Gold Apple"
+    price: 500.0
+useSimpleEcoAPI: false

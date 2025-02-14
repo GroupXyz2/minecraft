@@ -1,0 +1,14 @@
+name: itemshop
+version: '${version}'
+main: de.groupxyz.itemshop.Itemshop
+api-version: '1.20'
+prefix: item
+depend: [Vault]
+commands:
+  shop:
+    description: Oeffne den Item Shop.
+  playershop:
+    description: Oeffne den Playershop.
+  shopreload:
+    description: Reloade die Config
+    permission: item.op
