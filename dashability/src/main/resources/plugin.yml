@@ -1,0 +1,24 @@
+name: dashability
+version: '${version}'
+main: de.groupxyz.dashability.Dashability
+api-version: 1.20
+author: GroupXyz
+commands:
+  deactivateability:
+    description: Deactivate your Ability!
+    usage: /deactivateability
+  reactivateability:
+    description: Reactivate your Ability!
+    usage: /activateability
+  abilitywhitelist:
+    description: Whitelist Abilitys for a World!
+    usage: /abilitywhitelist [worldname]
+    permission:  ability.admin
+  removeabilitywhitelist:
+    description: Removed Whitelited Worlds for Abilitys!
+    usage: /removeabilitywhitelist [worldname]
+    permission: ability.admin
+  setabilitycooldown:
+    description: Set the cooldown of the Ability!
+    usage: /setabilitycooldown [seconds]
+    permission: ability.admin
