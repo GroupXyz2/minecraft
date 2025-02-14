@@ -1,0 +1,12 @@
+name: hubcmd
+version: '${version}'
+main: de.groupxyz.hubcmd.Hubcmd
+api-version: '1.20'
+author: GroupXyz
+commands:
+  hub:
+    usage: /hub
+  lobby:
+    usage: /lobby
+  l:
+    usage: /l
