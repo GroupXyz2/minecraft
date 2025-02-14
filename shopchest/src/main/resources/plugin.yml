@@ -1,0 +1,6 @@
+name: shopchest
+version: '${version}'
+main: de.groupxyz.shopchest.Shopchest
+api-version: '1.20'
+author: GroupXyz
+prefix: shoch
