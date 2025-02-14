@@ -1,0 +1,10 @@
+name: tpsbar
+version: '${version}'
+main: de.groupxyz.tpsbar.Tpsbar
+api-version: '1.20'
+author: GroupXyz
+prefix: 'TBAR'
+commands:
+  toggletps:
+    description: Toggles the TPS Bossbar.
+    permission: tpsbar.op
