@@ -1,0 +1,10 @@
+name: serverstatistics
+version: '${version}'
+main: de.groupxyz.serverstatistics.Serverstatistics
+api-version: '1.20'
+prefix: sest
+author: GroupXyz
+commands:
+  statistics:
+    description: Open statistics gui
+    permission: sest.op
