@@ -1,0 +1,19 @@
+name: myhome
+version: '${version}'
+main: de.groupxyz.myhome.Myhome
+api-version: 1.18
+author: GroupXyz
+prefix: myh
+commands:
+  sethome:
+    description: Set home
+    usage: /sethome <name>
+  home:
+    description: Teleport home
+    usage: /home <name>
+  delhome:
+    description: Delete home
+    usage: /delhome <name>
+  listhomes:
+    description: List homes
+    usage: /listhomes
