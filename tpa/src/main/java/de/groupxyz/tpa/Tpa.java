@@ -43,9 +43,15 @@ public class Tpa extends JavaPlugin {
         getLogger().info("Tpa shutting down.");
     }
 
+    private static final String PREFIX = ChatColor.GOLD + "[TPA] " + ChatColor.RESET;
+
+    private String addPrefix(String message) {
+        return PREFIX + message;
+    }
+
     private String formatMessage(String message, String sender, String receiver) {
         return ChatColor.translateAlternateColorCodes('&',
-                message.replace("{sender}", sender).replace("{receiver}", receiver));
+                addPrefix(message.replace("{sender}", sender).replace("{receiver}", receiver)));
     }
 
     private boolean hasPendingRequest(UUID playerUuid) {
@@ -65,7 +71,7 @@ public class Tpa extends JavaPlugin {
         if (cooldowns.containsKey(player.getUniqueId()) &&
                 System.currentTimeMillis() - cooldowns.get(player.getUniqueId()) < getConfig().getInt("cooldown") * 1000L) {
             long timeLeft = (getConfig().getInt("cooldown") * 1000L - (System.currentTimeMillis() - cooldowns.get(player.getUniqueId()))) / 1000;
-            player.sendMessage(ChatColor.RED + "Warte " + timeLeft + " Sekunden, bevor du erneut eine TPA senden kannst.");
+            player.sendMessage(addPrefix(ChatColor.RED + "Warte " + timeLeft + " Sekunden, bevor du erneut eine TPA senden kannst."));
             return true;
         }
         return false;
@@ -74,7 +80,7 @@ public class Tpa extends JavaPlugin {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(ChatColor.RED + "Nur Spieler können diesen Command nutzen!");
+            sender.sendMessage(addPrefix(ChatColor.RED + "Nur Spieler können diesen Command nutzen!"));
             return true;
         }
 
@@ -86,13 +92,13 @@ public class Tpa extends JavaPlugin {
             String permission = isTpaHere ? "tpa.here" : "tpa.use";
 
             if (!player.hasPermission(permission)) {
-                player.sendMessage(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!");
+                player.sendMessage(addPrefix(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!"));
                 return true;
             }
 
             if (args.length != 1) {
                 String usage = isTpaHere ? "/tpahere <Spieler>" : "/tpa <Spieler>";
-                player.sendMessage(ChatColor.RED + "Benutzung: " + usage);
+                player.sendMessage(addPrefix(ChatColor.RED + "Benutzung: " + usage));
                 return true;
             }
 
@@ -102,12 +108,12 @@ public class Tpa extends JavaPlugin {
 
             Player target = Bukkit.getPlayer(args[0]);
             if (target == null || !target.isOnline()) {
-                player.sendMessage(ChatColor.RED + "Spieler " + args[0] + " wurde nicht gefunden.");
+                player.sendMessage(addPrefix(ChatColor.RED + "Spieler " + args[0] + " wurde nicht gefunden."));
                 return true;
             }
 
             if (player.equals(target)) {
-                player.sendMessage(ChatColor.RED + "Du kannst dir selbst keine TPA-Anfrage senden!");
+                player.sendMessage(addPrefix(ChatColor.RED + "Du kannst dir selbst keine TPA-Anfrage senden!"));
                 return true;
             }
 
@@ -115,7 +121,7 @@ public class Tpa extends JavaPlugin {
                 if (tpaRequests.get(key).equals(player.getUniqueId())) {
                     Player oldTarget = Bukkit.getPlayer(key);
                     if (oldTarget != null) {
-                        oldTarget.sendMessage(ChatColor.RED + player.getName() + " hat die Teleportanfrage gecancellt.");
+                        oldTarget.sendMessage(addPrefix(ChatColor.RED + player.getName() + " hat die Teleportanfrage gecancellt."));
                     }
                     clearPendingRequests(key);
                     break;
@@ -126,7 +132,7 @@ public class Tpa extends JavaPlugin {
                 if (tpaHereRequests.get(key).equals(player.getUniqueId())) {
                     Player oldTarget = Bukkit.getPlayer(key);
                     if (oldTarget != null) {
-                        oldTarget.sendMessage(ChatColor.RED + player.getName() + " hat die Teleportanfrage gecancellt.");
+                        oldTarget.sendMessage(addPrefix(ChatColor.RED + player.getName() + " hat die Teleportanfrage gecancellt."));
                     }
                     clearPendingRequests(key);
                     break;
@@ -134,7 +140,7 @@ public class Tpa extends JavaPlugin {
             }
 
             if (hasPendingRequest(target.getUniqueId())) {
-                player.sendMessage(ChatColor.RED + "Der Spieler hat bereits eine ausstehende Anfrage.");
+                player.sendMessage(addPrefix(ChatColor.RED + "Der Spieler hat bereits eine ausstehende Anfrage."));
                 return true;
             }
 
@@ -162,11 +168,11 @@ public class Tpa extends JavaPlugin {
                     clearPendingRequests(target.getUniqueId());
 
                     if (player.isOnline()) {
-                        player.sendMessage(ChatColor.RED + "Deine TPA-Anfrage an " + target.getName() + " ist abgelaufen.");
+                        player.sendMessage(addPrefix(ChatColor.RED + "Deine TPA-Anfrage an " + target.getName() + " ist abgelaufen."));
                     }
 
                     if (target.isOnline()) {
-                        target.sendMessage(ChatColor.RED + "Die TPA-Anfrage von " + player.getName() + " ist abgelaufen.");
+                        target.sendMessage(addPrefix(ChatColor.RED + "Die TPA-Anfrage von " + player.getName() + " ist abgelaufen."));
                     }
                 }
             }, getConfig().getInt("request-expiration") * 20L);
@@ -185,11 +191,11 @@ public class Tpa extends JavaPlugin {
                         "&aAnfrage an {receiver} gesendet!"), player.getName(), target.getName()));
             }
 
-            target.sendMessage(ChatColor.GREEN + "Nutze /tpaccept, um zu akzeptieren, oder /tpdeny, um abzulehnen.");
+            target.sendMessage(addPrefix(ChatColor.GREEN + "Nutze /tpaccept, um zu akzeptieren, oder /tpdeny, um abzulehnen."));
 
         } else if (commandName.equals("tpaccept")) {
             if (!player.hasPermission("tpa.accept")) {
-                player.sendMessage(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!");
+                player.sendMessage(addPrefix(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!"));
                 return true;
             }
 
@@ -197,7 +203,7 @@ public class Tpa extends JavaPlugin {
             boolean hasTpaHereRequest = tpaHereRequests.containsKey(player.getUniqueId());
 
             if (!hasTpaRequest && !hasTpaHereRequest) {
-                player.sendMessage(ChatColor.RED + "Es gibt keine ausstehende Anfrage.");
+                player.sendMessage(addPrefix(ChatColor.RED + "Es gibt keine ausstehende Anfrage."));
                 return true;
             }
 
@@ -205,7 +211,7 @@ public class Tpa extends JavaPlugin {
             Player senderPlayer = Bukkit.getPlayer(senderUUID);
 
             if (senderPlayer == null || !senderPlayer.isOnline()) {
-                player.sendMessage(ChatColor.RED + "Der Spieler ist nicht mehr online.");
+                player.sendMessage(addPrefix(ChatColor.RED + "Der Spieler ist nicht mehr online."));
                 clearPendingRequests(player.getUniqueId());
                 return true;
             }
@@ -214,19 +220,19 @@ public class Tpa extends JavaPlugin {
                 senderPlayer.teleport(player.getLocation());
                 player.sendMessage(formatMessage(getConfig().getString("messages.tpa-accepted",
                         "&a{sender} wurde zu dir teleportiert!"), senderPlayer.getName(), player.getName()));
-                senderPlayer.sendMessage(ChatColor.GREEN + "Du wurdest zu " + player.getName() + " teleportiert.");
+                senderPlayer.sendMessage(addPrefix(ChatColor.GREEN + "Du wurdest zu " + player.getName() + " teleportiert."));
             } else {
                 player.teleport(senderPlayer.getLocation());
                 senderPlayer.sendMessage(formatMessage(getConfig().getString("messages.tpahere-accepted",
                         "&a{receiver} hat sich zu dir teleportiert!"), senderPlayer.getName(), player.getName()));
-                player.sendMessage(ChatColor.GREEN + "Du wurdest zu " + senderPlayer.getName() + " teleportiert.");
+                player.sendMessage(addPrefix(ChatColor.GREEN + "Du wurdest zu " + senderPlayer.getName() + " teleportiert."));
             }
 
             clearPendingRequests(player.getUniqueId());
 
         } else if (commandName.equals("tpdeny")) {
             if (!player.hasPermission("tpa.deny")) {
-                player.sendMessage(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!");
+                player.sendMessage(addPrefix(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!"));
                 return true;
             }
 
@@ -234,7 +240,7 @@ public class Tpa extends JavaPlugin {
             boolean hasTpaHereRequest = tpaHereRequests.containsKey(player.getUniqueId());
 
             if (!hasTpaRequest && !hasTpaHereRequest) {
-                player.sendMessage(ChatColor.RED + "Es gibt keine ausstehende Anfrage.");
+                player.sendMessage(addPrefix(ChatColor.RED + "Es gibt keine ausstehende Anfrage."));
                 return true;
             }
 
@@ -247,12 +253,12 @@ public class Tpa extends JavaPlugin {
                         "&c{receiver} hat deine Anfrage abgelehnt."), senderPlayer.getName(), player.getName()));
             }
 
-            player.sendMessage(ChatColor.RED + "Du hast die Anfrage abgelehnt.");
+            player.sendMessage(addPrefix(ChatColor.RED + "Du hast die Anfrage abgelehnt."));
             clearPendingRequests(player.getUniqueId());
 
         } else if (commandName.equals("tpcancel")) {
             if (!player.hasPermission("tpa.cancel")) {
-                player.sendMessage(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!");
+                player.sendMessage(addPrefix(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!"));
                 return true;
             }
 
@@ -277,30 +283,30 @@ public class Tpa extends JavaPlugin {
             }
 
             if (targetUUID == null) {
-                player.sendMessage(ChatColor.RED + "Du hast keine ausstehende Anfrage.");
+                player.sendMessage(addPrefix(ChatColor.RED + "Du hast keine ausstehende Anfrage."));
                 return true;
             }
 
             Player target = Bukkit.getPlayer(targetUUID);
             if (target != null && target.isOnline()) {
-                target.sendMessage(ChatColor.RED + player.getName() + " hat die Teleportanfrage zurückgezogen.");
+                target.sendMessage(addPrefix(ChatColor.RED + player.getName() + " hat die Teleportanfrage zurückgezogen."));
             }
 
-            player.sendMessage(ChatColor.RED + "Anfrage gecancellt.");
+            player.sendMessage(addPrefix(ChatColor.RED + "Anfrage gecancellt."));
             clearPendingRequests(targetUUID);
 
         } else if (commandName.equals("tpreload")) {
             if (!player.hasPermission("tpa.reload")) {
-                player.sendMessage(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!");
+                player.sendMessage(addPrefix(ChatColor.RED + "Du hast keine Berechtigung für diesen Befehl!"));
                 return true;
             }
 
             reloadConfig();
             player.sendMessage(ChatColor.GREEN + "Config neu geladen.");
         } else if (commandName.equals("tpinfo")) {
-            player.sendMessage(ChatColor.AQUA + "Tpa plugin");
-            player.sendMessage(ChatColor.AQUA + "Version: 1.0");
-            player.sendMessage(ChatColor.AQUA + "Author: GroupXyz");
+            player.sendMessage(addPrefix(ChatColor.AQUA + "Tpa plugin"));
+            player.sendMessage(addPrefix(ChatColor.AQUA + "Version: 1.0"));
+            player.sendMessage(addPrefix(ChatColor.AQUA + "Author: GroupXyz"));
         } else if (commandName.equals("tüv")) {
             Random random = new Random();
             int chance = random.nextInt(3);
