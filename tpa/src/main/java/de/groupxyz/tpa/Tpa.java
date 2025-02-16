@@ -334,7 +334,7 @@ public class Tpa extends JavaPlugin {
                     }
                 }
             }
-        } else if (command.equals("coin")) {
+        } else if (commandName.equals("coin")) {
             Random random = new Random();
             int chance = random.nextInt(2);
 
