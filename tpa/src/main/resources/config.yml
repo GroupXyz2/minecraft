@@ -1,0 +1,11 @@
+cooldown: 30
+request-expiration: 60
+messages:
+  tpa-sent: "&aAnfrage an {receiver} gesendet!"
+  tpa-received: "&6{sender} will sich zu dir teleportieren."
+  tpa-accepted: "&a{sender} wurde zu dir teleportiert!"
+  tpa-denied: "&c{receiver} hat deine Anfrage abgelehnt."
+  tpahere-send: "&aAnfrage an {receiver} gesendet!"
+  tpahere-received: "&6{sender} will, dass du dich zu ihm teleportierst."
+  tpahere-accepted: "&aDu wurdest zu {sender} teleportiert!"
+  tpahere-denied: "&c{receiver} hat deine Anfrage abgelehnt."

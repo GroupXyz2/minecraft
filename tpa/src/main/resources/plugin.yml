@@ -1,0 +1,50 @@
+name: tpa
+version: '${version}'
+main: de.groupxyz.tpa.Tpa
+api-version: '1.20'
+author: GroupXyz
+prefix: tpa
+commands:
+  tpa:
+    description: TPA
+    permission: tpa.use
+  tpahere:
+    description: TPAHERE
+    permission: tpa.here
+  tpaccept:
+    description: TPACCEPT
+    permission: tpa.accept
+  tpdeny:
+    description: TPDENY
+    permission: tpa.deny
+  tpcancel:
+    description: TPCANCEL
+    permission: tpa.cancel
+  tpreload:
+    description: TPRELOAD
+    permission: tpa.reload
+  tpinfo:
+    description: TPINFO
+  tüv:
+    description: TÜV GEPRÜFT!
+  coin:
+    description: COIN
+permissions:
+  tpa.use:
+    description: Erlaubt die Nutzung des /tpa Befehls
+    default: true
+  tpa.here:
+    description: Erlaubt die Nutzung des /tpahere Befehls
+    default: true
+  tpa.accept:
+    description: Erlaubt die Nutzung des /tpaccept Befehls
+    default: true
+  tpa.deny:
+    description: Erlaubt die Nutzung des /tpdeny Befehls
+    default: true
+  tpa.cancel:
+    description: Erlaubt die Nutzung des /tpacancel Befehls
+    default: true
+  tpa.reload:
+    description: Erlaubt die Nutzung des /tpreload Befehls
+    default: false
