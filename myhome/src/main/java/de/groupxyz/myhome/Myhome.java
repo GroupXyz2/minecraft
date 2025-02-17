@@ -48,9 +48,12 @@ public class Myhome extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
         if (pendingTeleports.containsKey(event.getPlayer().getUniqueId())) {
-            if (event.getFrom().getX() != event.getTo().getX() ||
-                    event.getFrom().getY() != event.getTo().getY() ||
-                    event.getFrom().getZ() != event.getTo().getZ()) {
+            Location from = event.getFrom();
+            Location to = event.getTo();
+
+            if (from.getBlockX() != to.getBlockX() ||
+                    from.getBlockY() != to.getBlockY() ||
+                    from.getBlockZ() != to.getBlockZ()) {
 
                 UUID playerId = event.getPlayer().getUniqueId();
                 pendingTeleports.get(playerId).cancel();
