@@ -85,8 +85,9 @@ public class Myhome extends JavaPlugin implements Listener {
             }
 
             ConfigurationSection homesSection = config.getConfigurationSection(path);
-            if (homesSection != null && homesSection.getKeys(false).size() >= 2) {
-                player.sendMessage(ChatColor.RED + "Du kannst maximal 2 Homes setzen!");
+            int maxHomes = config.getInt("max-homes", 3);
+            if (homesSection != null && homesSection.getKeys(false).size() >= maxHomes) {
+                player.sendMessage(ChatColor.RED + "Du kannst maximal " + maxHomes + " Homes setzen!");
                 return true;
             }
 
