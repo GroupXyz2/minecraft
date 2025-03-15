@@ -44,6 +44,7 @@ public class AnimationManager {
         private int speed;
         private boolean enabled;
         private UUID owner;
+        private boolean removeBlocksAfterFrame;
 
         public Animation(String name, UUID owner) {
             this.name = name;
@@ -51,6 +52,7 @@ public class AnimationManager {
             this.speed = 20;
             this.enabled = true;
             this.owner = owner;
+            this.removeBlocksAfterFrame = false;
         }
     }
 
@@ -80,6 +82,20 @@ public class AnimationManager {
         }
     }
 
+    public void deselectAllBlocks(Player player) {
+        UUID playerUUID = player.getUniqueId();
+        List<Location> blocks = selectedBlocks.get(playerUUID);
+
+        if (blocks == null || blocks.isEmpty()) {
+            player.sendMessage("§cNo blocks are currently selected!");
+            return;
+        }
+
+        int count = blocks.size();
+        blocks.clear();
+        player.sendMessage("§aDeselected all " + count + " blocks!");
+    }
+
     public void createAnimation(Player player, String name) {
         if (animations.containsKey(name)) {
             player.sendMessage("§cAn animation with that name already exists!");
@@ -100,6 +116,7 @@ public class AnimationManager {
 
         Animation animation = animations.get(name);
 
+        // Check if player owns the animation or has permission
         if (!animation.owner.equals(player.getUniqueId()) &&
                 !player.hasPermission("movingblocks.admin")) {
             player.sendMessage("§cYou don't have permission to select this animation!");
@@ -119,15 +136,20 @@ public class AnimationManager {
             return;
         }
 
+        Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
+
         List<Location> blocks = selectedBlocks.get(playerUUID);
         if (blocks == null || blocks.isEmpty()) {
             player.sendMessage("§cNo blocks selected!");
             return;
         }
 
-        Animation animation = animations.get(animName);
         Map<Location, Material> frame = new HashMap<>();
-
         for (Location location : blocks) {
             frame.put(location.clone(), location.getBlock().getType());
         }
@@ -146,6 +168,12 @@ public class AnimationManager {
         }
 
         Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
+
         if (frameIndex < 0 || frameIndex >= animation.frames.size()) {
             player.sendMessage("§cInvalid frame index! Must be between 0 and " + (animation.frames.size() - 1));
             return;
@@ -167,16 +195,33 @@ public class AnimationManager {
                 (animation.enabled ? "§aenabled" : "§cdisabled"));
     }
 
+    public void toggleAnimationMode(Player player, String name) {
+        if (!animations.containsKey(name)) {
+            player.sendMessage("§cAnimation '" + name + "' doesn't exist!");
+            return;
+        }
+
+        Animation animation = animations.get(name);
+        animation.removeBlocksAfterFrame = !animation.removeBlocksAfterFrame;
+        player.sendMessage("§aAnimation '" + name + "' mode set to: " +
+                (animation.removeBlocksAfterFrame ? "§bPlace and Remove" : "§bReplace"));
+    }
+
     public void startAnimation(Player player) {
         UUID playerUUID = player.getUniqueId();
         String animName = playerCurrentAnimation.get(playerUUID);
 
         if (animName == null) {
-            player.sendMessage("§cNo animation selected!");
+            player.sendMessage("§cNo animation selected! Create or select one first.");
             return;
         }
 
         Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
 
         if (!animation.enabled) {
             player.sendMessage("§cThis animation is disabled!");
@@ -201,7 +246,7 @@ public class AnimationManager {
                 }
 
                 int frame = currentFrame.get(playerUUID);
-                playFrame(player, animation.frames.get(frame));
+                playFrame(player, animation.frames.get(frame), animation.removeBlocksAfterFrame);
 
                 frame = (frame + 1) % animation.frames.size();
                 currentFrame.put(playerUUID, frame);
@@ -236,6 +281,12 @@ public class AnimationManager {
         }
 
         Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
+
         animation.speed = speed;
         player.sendMessage("§aAnimation speed set to " + speed + " ticks.");
 
@@ -244,10 +295,110 @@ public class AnimationManager {
         }
     }
 
-    private void playFrame(Player player, Map<Location, Material> frame) {
+    private void playFrame(Player player, Map<Location, Material> frame, boolean removeAfter) {
+        Map<Location, Material> originalBlocks = new HashMap<>();
+
+        if (removeAfter) {
+            for (Location loc : frame.keySet()) {
+                originalBlocks.put(loc, loc.getBlock().getType());
+            }
+        }
+
         for (Map.Entry<Location, Material> entry : frame.entrySet()) {
             entry.getKey().getBlock().setType(entry.getValue());
         }
+
+        if (removeAfter) {
+            Animation animation = animations.get(playerCurrentAnimation.get(player.getUniqueId()));
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    for (Map.Entry<Location, Material> entry : originalBlocks.entrySet()) {
+                        entry.getKey().getBlock().setType(entry.getValue());
+                    }
+                }
+            }.runTaskLater(plugin, Math.max(animation.speed / 2, 1));
+        }
+    }
+
+    public void previewFrame(Player player, int frameIndex) {
+        UUID playerUUID = player.getUniqueId();
+        String animName = playerCurrentAnimation.get(playerUUID);
+
+        if (animName == null) {
+            player.sendMessage("§cNo animation selected!");
+            return;
+        }
+
+        Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
+
+        if (frameIndex < 0 || frameIndex >= animation.frames.size()) {
+            player.sendMessage("§cInvalid frame index! Must be between 0 and " + (animation.frames.size() - 1));
+            return;
+        }
+
+        stopAnimation(player);
+        Map<Location, Material> frame = animation.frames.get(frameIndex);
+        playFrame(player, frame, false);
+        player.sendMessage("§aPreviewing frame " + frameIndex);
+    }
+
+    public void duplicateAnimation(Player player, String sourceName, String targetName) {
+        if (!animations.containsKey(sourceName)) {
+            player.sendMessage("§cSource animation '" + sourceName + "' doesn't exist!");
+            return;
+        }
+
+        if (animations.containsKey(targetName)) {
+            player.sendMessage("§cAn animation with name '" + targetName + "' already exists!");
+            return;
+        }
+
+        Animation sourceAnim = animations.get(sourceName);
+        Animation newAnim = new Animation(targetName, player.getUniqueId());
+
+        newAnim.speed = sourceAnim.speed;
+        newAnim.removeBlocksAfterFrame = sourceAnim.removeBlocksAfterFrame;
+
+        for (Map<Location, Material> sourceFrame : sourceAnim.frames) {
+            Map<Location, Material> newFrame = new HashMap<>();
+            for (Map.Entry<Location, Material> entry : sourceFrame.entrySet()) {
+                newFrame.put(entry.getKey().clone(), entry.getValue());
+            }
+            newAnim.frames.add(newFrame);
+        }
+
+        animations.put(targetName, newAnim);
+        player.sendMessage("§aAnimation '" + sourceName + "' duplicated as '" + targetName + "'");
+    }
+
+    public void renameAnimation(Player player, String oldName, String newName) {
+        if (!animations.containsKey(oldName)) {
+            player.sendMessage("§cAnimation '" + oldName + "' doesn't exist!");
+            return;
+        }
+
+        if (animations.containsKey(newName)) {
+            player.sendMessage("§cAn animation with name '" + newName + "' already exists!");
+            return;
+        }
+
+        Animation anim = animations.remove(oldName);
+        anim.name = newName;
+        animations.put(newName, anim);
+
+        for (Map.Entry<UUID, String> entry : new HashMap<>(playerCurrentAnimation).entrySet()) {
+            if (entry.getValue().equals(oldName)) {
+                playerCurrentAnimation.put(UUID.fromString(entry.getValue()), newName);
+            }
+        }
+
+        player.sendMessage("§aAnimation renamed from '" + oldName + "' to '" + newName + "'");
     }
 
     public void clearFrames(Player player) {
@@ -259,8 +410,14 @@ public class AnimationManager {
             return;
         }
 
-        stopAnimation(player);
         Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
+
+        stopAnimation(player);
         animation.frames.clear();
         player.sendMessage("§aAll frames cleared from animation '" + animName + "'!");
     }
@@ -302,8 +459,9 @@ public class AnimationManager {
             boolean isOwner = anim.owner.equals(player.getUniqueId());
             String status = anim.enabled ? "§aEnabled" : "§cDisabled";
             String ownership = isOwner ? "§aYours" : "§eOther";
+            String mode = anim.removeBlocksAfterFrame ? "§bPlace+Remove" : "§bReplace";
             player.sendMessage("§e" + entry.getKey() + " §7- " + status + " §7- " +
-                    ownership + " §7- §e" + anim.frames.size() + " frames");
+                    ownership + " §7- " + mode + " §7- §e" + anim.frames.size() + " frames");
         }
     }
 
@@ -319,34 +477,29 @@ public class AnimationManager {
             String name = entry.getKey();
             Animation anim = entry.getValue();
 
-            ConfigurationSection animSection = config.createSection(name);
-            animSection.set("owner", anim.owner.toString());
-            animSection.set("enabled", anim.enabled);
-            animSection.set("speed", anim.speed);
+            config.set(name + ".owner", anim.owner.toString());
+            config.set(name + ".enabled", anim.enabled);
+            config.set(name + ".speed", anim.speed);
+            config.set(name + ".removeBlocksAfterFrame", anim.removeBlocksAfterFrame);
 
-            List<Map<String, Object>> framesList = new ArrayList<>();
+            int frameIndex = 0;
             for (Map<Location, Material> frame : anim.frames) {
-                Map<String, Object> frameMap = new HashMap<>();
                 int blockIndex = 0;
-
                 for (Map.Entry<Location, Material> blockEntry : frame.entrySet()) {
                     Location loc = blockEntry.getKey();
                     Material mat = blockEntry.getValue();
 
-                    ConfigurationSection blockSection =
-                            config.createSection(name + ".frames." + blockIndex);
-
-                    blockSection.set("world", loc.getWorld().getName());
-                    blockSection.set("x", loc.getX());
-                    blockSection.set("y", loc.getY());
-                    blockSection.set("z", loc.getZ());
-                    blockSection.set("material", mat.name());
+                    String path = name + ".frames." + frameIndex + "." + blockIndex;
+                    config.set(path + ".world", loc.getWorld().getName());
+                    config.set(path + ".x", loc.getX());
+                    config.set(path + ".y", loc.getY());
+                    config.set(path + ".z", loc.getZ());
+                    config.set(path + ".material", mat.name());
 
                     blockIndex++;
                 }
+                frameIndex++;
             }
-
-            animSection.set("frameCount", anim.frames.size());
         }
 
         try {
@@ -368,42 +521,49 @@ public class AnimationManager {
 
         for (String animName : config.getKeys(false)) {
             try {
-                ConfigurationSection animSection = config.getConfigurationSection(animName);
-                if (animSection == null) continue;
-
-                UUID owner = UUID.fromString(animSection.getString("owner", ""));
-                boolean enabled = animSection.getBoolean("enabled", true);
-                int speed = animSection.getInt("speed", 20);
+                UUID owner = UUID.fromString(config.getString(animName + ".owner", ""));
+                boolean enabled = config.getBoolean(animName + ".enabled", true);
+                int speed = config.getInt(animName + ".speed", 20);
+                boolean removeBlocksAfterFrame = config.getBoolean(animName + ".removeBlocksAfterFrame", false);
 
                 Animation animation = new Animation(animName, owner);
                 animation.enabled = enabled;
                 animation.speed = speed;
+                animation.removeBlocksAfterFrame = removeBlocksAfterFrame;
 
-                ConfigurationSection framesSection = animSection.getConfigurationSection("frames");
+                ConfigurationSection framesSection = config.getConfigurationSection(animName + ".frames");
                 if (framesSection != null) {
                     Map<Integer, Map<Location, Material>> tempFrames = new HashMap<>();
 
-                    for (String frameKey : framesSection.getKeys(false)) {
-                        ConfigurationSection blockSection = framesSection.getConfigurationSection(frameKey);
-                        if (blockSection == null) continue;
+                    for (String frameIndexStr : framesSection.getKeys(false)) {
+                        int frameIndex = Integer.parseInt(frameIndexStr);
+                        Map<Location, Material> frame = new HashMap<>();
 
-                        String worldName = blockSection.getString("world");
-                        World world = Bukkit.getWorld(worldName);
-                        if (world == null) continue;
+                        ConfigurationSection blockSection = framesSection.getConfigurationSection(frameIndexStr);
+                        if (blockSection != null) {
+                            for (String blockIndexStr : blockSection.getKeys(false)) {
+                                String path = frameIndexStr + "." + blockIndexStr;
 
-                        double x = blockSection.getDouble("x");
-                        double y = blockSection.getDouble("y");
-                        double z = blockSection.getDouble("z");
-                        Location loc = new Location(world, x, y, z);
+                                String worldName = config.getString(animName + ".frames." + path + ".world");
+                                World world = Bukkit.getWorld(worldName);
+                                if (world == null) continue;
 
-                        String matName = blockSection.getString("material");
-                        Material mat = Material.getMaterial(matName);
-                        if (mat == null) continue;
+                                double x = config.getDouble(animName + ".frames." + path + ".x");
+                                double y = config.getDouble(animName + ".frames." + path + ".y");
+                                double z = config.getDouble(animName + ".frames." + path + ".z");
+                                Location loc = new Location(world, x, y, z);
 
-                        int frameIndex = Integer.parseInt(frameKey);
+                                String matName = config.getString(animName + ".frames." + path + ".material");
+                                Material mat = Material.getMaterial(matName);
+                                if (mat == null) continue;
 
-                        Map<Location, Material> frame = tempFrames.computeIfAbsent(frameIndex, k -> new HashMap<>());
-                        frame.put(loc, mat);
+                                frame.put(loc, mat);
+                            }
+                        }
+
+                        if (!frame.isEmpty()) {
+                            tempFrames.put(frameIndex, frame);
+                        }
                     }
 
                     for (int i = 0; i < tempFrames.size(); i++) {
@@ -421,5 +581,22 @@ public class AnimationManager {
         }
 
         plugin.getLogger().info("Loaded " + animations.size() + " animations.");
+    }
+
+    public List<String> getAnimationNames() {
+        return new ArrayList<>(animations.keySet());
+    }
+
+    public String getPlayerCurrentAnimation(UUID playerUUID) {
+        return playerCurrentAnimation.get(playerUUID);
+    }
+
+    public boolean isAnimationRunning(UUID playerUUID) {
+        return runningAnimations.containsKey(playerUUID);
+    }
+
+    public boolean isAnimationEnabled(String name) {
+        Animation animation = animations.get(name);
+        return animation != null && animation.enabled;
     }
 }

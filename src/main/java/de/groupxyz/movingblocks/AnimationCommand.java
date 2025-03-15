@@ -18,7 +18,8 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
     private final AnimationManager animationManager;
     private final List<String> mainCommands = Arrays.asList(
             "stick", "create", "select", "play", "stop", "speed",
-            "clear", "delete", "list", "enable", "disable", "frame"
+            "clear", "delete", "list", "enable", "disable", "frame",
+            "mode", "preview", "duplicate", "rename", "deselect"
     );
 
     public AnimationCommand(Plugin plugin, AnimationManager animationManager) {
@@ -106,7 +107,9 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage("§cUsage: /mb enable <name>");
                     return true;
                 }
-                animationManager.toggleAnimationStatus(player, args[1]);
+                if (!animationManager.isAnimationEnabled(args[1])) {
+                    animationManager.toggleAnimationStatus(player, args[1]);
+                }
                 return true;
 
             case "disable":
@@ -114,12 +117,22 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
                     player.sendMessage("§cUsage: /mb disable <name>");
                     return true;
                 }
-                animationManager.toggleAnimationStatus(player, args[1]);
+
+                for (Player p : plugin.getServer().getOnlinePlayers()) {
+                    String currentAnim = animationManager.getPlayerCurrentAnimation(p.getUniqueId());
+                    if (args[1].equals(currentAnim) && animationManager.isAnimationRunning(p.getUniqueId())) {
+                        animationManager.stopAnimation(p);
+                    }
+                }
+
+                if (animationManager.isAnimationEnabled(args[1])) {
+                    animationManager.toggleAnimationStatus(player, args[1]);
+                }
                 return true;
 
             case "frame":
                 if (args.length < 2) {
-                    player.sendMessage("§cUsage: /mb frame <add|delete> [frame_number]");
+                    player.sendMessage("§cUsage: /mb frame <add|delete|preview> [frame_number]");
                     return true;
                 }
 
@@ -136,9 +149,48 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
                     } catch (NumberFormatException e) {
                         player.sendMessage("§cPlease enter a valid frame number!");
                     }
+                } else if (args[1].equalsIgnoreCase("preview")) {
+                    if (args.length < 3) {
+                        player.sendMessage("§cUsage: /mb frame preview <frame_number>");
+                        return true;
+                    }
+                    try {
+                        int frameIndex = Integer.parseInt(args[2]);
+                        animationManager.previewFrame(player, frameIndex);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage("§cPlease enter a valid frame number!");
+                    }
                 } else {
-                    player.sendMessage("§cUnknown frame subcommand. Use add or delete.");
+                    player.sendMessage("§cUnknown frame subcommand. Use add, delete, or preview.");
                 }
+                return true;
+
+            case "mode":
+                if (args.length < 2) {
+                    player.sendMessage("§cUsage: /mb mode <animation_name>");
+                    return true;
+                }
+                animationManager.toggleAnimationMode(player, args[1]);
+                return true;
+
+            case "duplicate":
+                if (args.length < 3) {
+                    player.sendMessage("§cUsage: /mb duplicate <source_name> <target_name>");
+                    return true;
+                }
+                animationManager.duplicateAnimation(player, args[1], args[2]);
+                return true;
+
+            case "rename":
+                if (args.length < 3) {
+                    player.sendMessage("§cUsage: /mb rename <old_name> <new_name>");
+                    return true;
+                }
+                animationManager.renameAnimation(player, args[1], args[2]);
+                return true;
+
+            case "deselect":
+                animationManager.deselectAllBlocks(player);
                 return true;
 
             default:
@@ -154,13 +206,18 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§e/mb select <name> §7- Select an animation to work with");
         player.sendMessage("§e/mb frame add §7- Add a frame to current animation");
         player.sendMessage("§e/mb frame delete <number> §7- Delete a specific frame");
+        player.sendMessage("§e/mb frame preview <number> §7- Preview a specific frame");
         player.sendMessage("§e/mb play §7- Start the current animation");
         player.sendMessage("§e/mb stop §7- Stop the animation");
         player.sendMessage("§e/mb speed <ticks> §7- Set animation speed");
         player.sendMessage("§e/mb clear §7- Clear all frames in current animation");
         player.sendMessage("§e/mb delete <name> §7- Delete an animation");
         player.sendMessage("§e/mb enable/disable <name> §7- Toggle animation status");
+        player.sendMessage("§e/mb mode <name> §7- Toggle between Replace/Place+Remove mode");
         player.sendMessage("§e/mb list §7- List all available animations");
+        player.sendMessage("§e/mb duplicate <source> <target> §7- Copy an animation");
+        player.sendMessage("§e/mb rename <old> <new> §7- Rename an animation");
+        player.sendMessage("§e/mb deselect §7- Deselect all blocks");
     }
 
     @Override
@@ -177,8 +234,18 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2) {
             if (args[0].equalsIgnoreCase("frame")) {
-                return Arrays.asList("add", "delete").stream()
+                return Arrays.asList("add", "delete", "preview").stream()
                         .filter(s -> s.startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
+            } else if (args[0].equalsIgnoreCase("select") ||
+                    args[0].equalsIgnoreCase("delete") ||
+                    args[0].equalsIgnoreCase("enable") ||
+                    args[0].equalsIgnoreCase("disable") ||
+                    args[0].equalsIgnoreCase("mode") ||
+                    args[0].equalsIgnoreCase("duplicate") ||
+                    args[0].equalsIgnoreCase("rename")) {
+                return animationManager.getAnimationNames().stream()
+                        .filter(name -> name.startsWith(args[1].toLowerCase()))
                         .collect(Collectors.toList());
             }
         }
