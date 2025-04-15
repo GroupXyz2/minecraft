@@ -97,14 +97,27 @@ public class AnimationManager {
     }
 
     public void createAnimation(Player player, String name) {
+        UUID playerUUID = player.getUniqueId();
+
+        if (runningAnimations.containsKey(playerUUID)) {
+            stopAnimation(player);
+        }
+
+        String currentAnim = playerCurrentAnimation.get(playerUUID);
+        if (currentAnim != null && animations.containsKey(currentAnim)) {
+            player.sendMessage("§cYou are currently working on animation '" + currentAnim + "'.");
+            player.sendMessage("§cPlease finish or deselect it before creating a new one.");
+            return;
+        }
+
         if (animations.containsKey(name)) {
             player.sendMessage("§cAn animation with that name already exists!");
             return;
         }
 
-        Animation animation = new Animation(name, player.getUniqueId());
+        Animation animation = new Animation(name, playerUUID);
         animations.put(name, animation);
-        playerCurrentAnimation.put(player.getUniqueId(), name);
+        playerCurrentAnimation.put(playerUUID, name);
         player.sendMessage("§aCreated animation '" + name + "' and set as current animation.");
     }
 
@@ -116,7 +129,6 @@ public class AnimationManager {
 
         Animation animation = animations.get(name);
 
-        // Check if player owns the animation or has permission
         if (!animation.owner.equals(player.getUniqueId()) &&
                 !player.hasPermission("movingblocks.admin")) {
             player.sendMessage("§cYou don't have permission to select this animation!");
@@ -125,6 +137,107 @@ public class AnimationManager {
 
         playerCurrentAnimation.put(player.getUniqueId(), name);
         player.sendMessage("§aSelected animation: " + name);
+    }
+
+    public void finalizeAnimation(Player player) {
+        UUID playerUUID = player.getUniqueId();
+        String animName = playerCurrentAnimation.remove(playerUUID);
+
+        if (animName == null) {
+            player.sendMessage("§cNo animation selected to finalize!");
+            return;
+        }
+
+        Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            return;
+        }
+
+        player.sendMessage("§aAnimation '" + animName + "' finalized. You can now create or select another animation.");
+    }
+
+    public void startGlobalAnimation(String name) {
+        if (!animations.containsKey(name)) {
+            plugin.getLogger().warning("Animation '" + name + "' does not exist!");
+            return;
+        }
+
+        Animation animation = animations.get(name);
+        if (!animation.enabled) {
+            plugin.getLogger().warning("Animation '" + name + "' is disabled and cannot be started!");
+            return;
+        }
+
+        if (animation.frames.isEmpty()) {
+            plugin.getLogger().warning("Animation '" + name + "' has no frames and cannot be started!");
+            return;
+        }
+
+        BukkitRunnable task = new BukkitRunnable() {
+            private int frameIndex = 0;
+
+            @Override
+            public void run() {
+                if (frameIndex >= animation.frames.size()) {
+                    frameIndex = 0;
+                }
+
+                playFrame(null, animation.frames.get(frameIndex), animation.removeBlocksAfterFrame);
+                frameIndex++;
+            }
+        };
+
+        task.runTaskTimer(plugin, 0, animation.speed);
+        runningAnimations.put(UUID.randomUUID(), task);
+        plugin.getLogger().info("Animation '" + name + "' started globally.");
+    }
+
+    public void stopGlobalAnimation(String name) {
+        for (Map.Entry<UUID, BukkitRunnable> entry : new HashMap<>(runningAnimations).entrySet()) {
+            UUID uuid = entry.getKey();
+            BukkitRunnable task = entry.getValue();
+
+            if (animations.containsKey(name) && animations.get(name).name.equals(name)) {
+                task.cancel();
+                runningAnimations.remove(uuid);
+                plugin.getLogger().info("Animation '" + name + "' stopped globally.");
+                return;
+            }
+        }
+
+        plugin.getLogger().warning("Animation '" + name + "' is not running globally.");
+    }
+
+    public void selectArea(Player player, Location first, Location second) {
+        UUID playerUUID = player.getUniqueId();
+        List<Location> blocks = selectedBlocks.computeIfAbsent(playerUUID, k -> new ArrayList<>());
+
+        int minX = Math.min(first.getBlockX(), second.getBlockX());
+        int minY = Math.min(first.getBlockY(), second.getBlockY());
+        int minZ = Math.min(first.getBlockZ(), second.getBlockZ());
+        int maxX = Math.max(first.getBlockX(), second.getBlockX());
+        int maxY = Math.max(first.getBlockY(), second.getBlockY());
+        int maxZ = Math.max(first.getBlockZ(), second.getBlockZ());
+
+        World world = first.getWorld();
+        if (!first.getWorld().equals(second.getWorld())) {
+            player.sendMessage("§cThe points have to be in the same world!");
+            return;
+        }
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    Location loc = new Location(world, x, y, z);
+                    if (!blocks.contains(loc)) {
+                        blocks.add(loc);
+                    }
+                }
+            }
+        }
+
+        player.sendMessage("§aArea selected: " + blocks.size() + " blocks.");
     }
 
     public void createFrame(Player player) {
@@ -473,6 +586,16 @@ public class AnimationManager {
             config.set(key, null);
         }
 
+        List<String> runningAnimationNames = new ArrayList<>();
+        for (Map.Entry<UUID, BukkitRunnable> entry : runningAnimations.entrySet()) {
+            for (Map.Entry<String, Animation> animEntry : animations.entrySet()) {
+                if (animEntry.getValue().name.equals(animEntry.getKey())) {
+                    runningAnimationNames.add(animEntry.getKey());
+                }
+            }
+        }
+        config.set("runningAnimations", runningAnimationNames);
+
         for (Map.Entry<String, Animation> entry : animations.entrySet()) {
             String name = entry.getKey();
             Animation anim = entry.getValue();
@@ -520,6 +643,8 @@ public class AnimationManager {
         FileConfiguration config = YamlConfiguration.loadConfiguration(file);
 
         for (String animName : config.getKeys(false)) {
+            if (animName.equals("runningAnimations")) continue;
+
             try {
                 UUID owner = UUID.fromString(config.getString(animName + ".owner", ""));
                 boolean enabled = config.getBoolean(animName + ".enabled", true);
@@ -533,10 +658,7 @@ public class AnimationManager {
 
                 ConfigurationSection framesSection = config.getConfigurationSection(animName + ".frames");
                 if (framesSection != null) {
-                    Map<Integer, Map<Location, Material>> tempFrames = new HashMap<>();
-
                     for (String frameIndexStr : framesSection.getKeys(false)) {
-                        int frameIndex = Integer.parseInt(frameIndexStr);
                         Map<Location, Material> frame = new HashMap<>();
 
                         ConfigurationSection blockSection = framesSection.getConfigurationSection(frameIndexStr);
@@ -562,13 +684,6 @@ public class AnimationManager {
                         }
 
                         if (!frame.isEmpty()) {
-                            tempFrames.put(frameIndex, frame);
-                        }
-                    }
-
-                    for (int i = 0; i < tempFrames.size(); i++) {
-                        Map<Location, Material> frame = tempFrames.get(i);
-                        if (frame != null) {
                             animation.frames.add(frame);
                         }
                     }
@@ -577,6 +692,14 @@ public class AnimationManager {
                 animations.put(animName, animation);
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to load animation '" + animName + "': " + e.getMessage());
+            }
+        }
+
+        List<String> runningAnimationNames = config.getStringList("runningAnimations");
+        for (String animName : runningAnimationNames) {
+            if (animations.containsKey(animName)) {
+                startGlobalAnimation(animName);
+                plugin.getLogger().info("Restored global animation: " + animName);
             }
         }
 

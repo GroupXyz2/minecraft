@@ -19,7 +19,8 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
     private final List<String> mainCommands = Arrays.asList(
             "stick", "create", "select", "play", "stop", "speed",
             "clear", "delete", "list", "enable", "disable", "frame",
-            "mode", "preview", "duplicate", "rename", "deselect"
+            "mode", "preview", "duplicate", "rename", "deselect",
+            "finalize", "startglobal", "stopglobal"
     );
 
     public AnimationCommand(Plugin plugin, AnimationManager animationManager) {
@@ -45,7 +46,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
             case "stick":
                 ItemStack stick = animationManager.createSelectionStick();
                 player.getInventory().addItem(stick);
-                player.sendMessage("§aYou received a Block Selection Stick!");
+                player.sendMessage("§aYou received a Block Selection Stick, hold sneak to mass select!");
                 return true;
 
             case "create":
@@ -193,6 +194,26 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
                 animationManager.deselectAllBlocks(player);
                 return true;
 
+            case "finalize":
+                animationManager.finalizeAnimation(player);
+                return true;
+
+            case "startglobal":
+                if (args.length < 2) {
+                    player.sendMessage("§cUsage: /mb startglobal <name>");
+                    return true;
+                }
+                animationManager.startGlobalAnimation(args[1]);
+                return true;
+
+            case "stopglobal":
+                if (args.length < 2) {
+                    player.sendMessage("§cUsage: /mb stopglobal <name>");
+                    return true;
+                }
+                animationManager.stopGlobalAnimation(args[1]);
+                return true;
+
             default:
                 sendHelp(player);
                 return true;
@@ -218,6 +239,9 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§e/mb duplicate <source> <target> §7- Copy an animation");
         player.sendMessage("§e/mb rename <old> <new> §7- Rename an animation");
         player.sendMessage("§e/mb deselect §7- Deselect all blocks");
+        player.sendMessage("§e/mb finalize §7- Finalize the current animation");
+        player.sendMessage("§e/mb startglobal <name> §7- Start a global animation");
+        player.sendMessage("§e/mb stopglobal <name> §7- Stop a global animation");
     }
 
     @Override
