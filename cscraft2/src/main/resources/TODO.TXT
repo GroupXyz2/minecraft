@@ -1,0 +1,16 @@
+Friendly fire                                | TEST
+Nicht auf einem place spawnen                | TEST
+Bombe hinterlässt air bug                    | DONE
+Shop command in warmup                       | DONE
+Admins während Runde auch kein glas breaken  | DONE
+Alle ct tot = auto bomb stop                 | DONE
+
+Round based error not same thread            | NOT REPRODUCABLE
+Nametag solution?                            | FAILED
+Rundenbasiert mit Geld pro Kill und Runde    | DONE
+Runden Geld fixen                            | DONE
+Armor nicht bebkommen + Waffen behalten      | DONE
+Saturation während Lobby                     | DONE
+Plant time                                   | DONE
+Sound auch in roundbased bei start + teams in tab anzeigen + bomben plant timer geht trotzdem weiter + 2x hp anzeige + terroristen winnen obwohl nicht
+Plugin welches FML und Fabric Channel usw observiert um zu checken mit welchen Mods der spieler joint

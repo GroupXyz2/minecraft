@@ -1,0 +1,15 @@
+name: cscraft2
+version: '1.0-MAIN'
+main: de.groupxyz.cscraft2.Cscraft2
+api-version: '1.20'
+author: GroupXyz
+prefix: cs2
+commands:
+  cs:
+    description: Main command for CSCraft2 Plugin
+    usage: /cs <command>
+    aliases: [csgo, cscraft]
+  csround:
+    description: Roundsettings command
+    usage: /csround <set/info> [option] [value]
+    permission: cscraft.admin
