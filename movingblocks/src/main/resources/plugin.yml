@@ -1,0 +1,12 @@
+name: movingblocks
+version: '${version}'
+main: de.groupxyz.movingblocks.Movingblocks
+api-version: '1.21'
+author: GroupXyz
+prefix: mb
+commands:
+  movingblocks:
+    aliases: [mb]
+    description: MB Command
+    usage: /mb <stick|play|stop|speed|clear>
+    permission: movingblocks.command
