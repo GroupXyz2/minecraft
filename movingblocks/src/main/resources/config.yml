@@ -1,0 +1,3 @@
+update-checker:
+  enabled: true
+  notify-admins: true

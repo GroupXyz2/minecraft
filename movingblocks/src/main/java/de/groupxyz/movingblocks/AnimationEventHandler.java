@@ -462,7 +462,7 @@ public class AnimationEventHandler implements Listener {
         if (type != EventType.BUTTON_PRESS && 
             type != EventType.BLOCK_WALK && 
             type != EventType.LEVER_TOGGLE &&
-            type != EventType.STOP_ANIMATION) {  // Added support for stop events
+            type != EventType.STOP_ANIMATION) {
             throw new IllegalArgumentException("Invalid event type for block event");
         }
         

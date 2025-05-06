@@ -1399,4 +1399,33 @@ public class AnimationManager {
     public boolean isAnimationExists(String name) {
         return animations.containsKey(name);
     }
+    
+    public int getAnimationFrameCount(String animationName) {
+        Animation animation = animations.get(animationName);
+        if (animation == null) {
+            return 0;
+        }
+        return animation.frames.size();
+    }
+    
+    public int getAnimationTotalBlocks(String animationName) {
+        Animation animation = animations.get(animationName);
+        if (animation == null) {
+            return 0;
+        }
+        
+        int blockCount = 0;
+        for (BlockFrame frame : animation.frames) {
+            blockCount += frame.getBlocks().size();
+        }
+        return blockCount;
+    }
+    
+    public boolean isAnimationRemoveBlocksAfterFrame(String animationName) {
+        Animation animation = animations.get(animationName);
+        if (animation == null) {
+            return false;
+        }
+        return animation.removeBlocksAfterFrame;
+    }
 }
