@@ -48,9 +48,9 @@ task publishToGitHub(type: Exec) {
     }
     
     if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-        commandLine 'cmd', '/c', 'git add github-upload/movingblocks && git commit -m "Update MovingBlocks Plugin to version ' + project.version + '" && git push origin main'
+        commandLine 'cmd', '/c', 'git add github-upload/movingblocks && git commit -m "Update MovingBlocks Plugin to version ' + project.version + '" && git push origin master'
     } else {
-        commandLine 'sh', '-c', 'git add github-upload/movingblocks && git commit -m "Update MovingBlocks Plugin to version ' + project.version + '" && git push origin main'
+        commandLine 'sh', '-c', 'git add github-upload/movingblocks && git commit -m "Update MovingBlocks Plugin to version ' + project.version + '" && git push origin master'
     }
     
     ignoreExitValue true
