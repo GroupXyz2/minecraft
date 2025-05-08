@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'de.groupxyz'
-version = '1.2-MAIN'
+version = '1.6-MAIN'
 
 repositories {
     mavenCentral()
@@ -18,8 +18,68 @@ repositories {
 }
 
 dependencies {
-compileOnly "io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT"
+    compileOnly "io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT"
 }
+
+task copyJarToRepo(type: Copy) {
+    dependsOn jar
+    
+    doFirst {
+        File githubRepoDir = file("../minecraft/movingblocks")
+        if (!githubRepoDir.exists()) {
+            throw new GradleException("GitHub Repository-Ordner nicht gefunden. Stelle sicher, dass das GitHub Repository unter '../minecraft' geklont ist.")
+        }
+        
+        println "Kopiere JAR in das GitHub Repository..."
+    }
+    
+    from "build/libs/${project.name}-${project.version}.jar"
+    into "../minecraft/movingblocks"
+}
+
+task copySourcesToRepo(type: Copy) {
+    from "src"
+    from "build.gradle"
+    into "../minecraft/movingblocks/src"
+    
+    doFirst {
+        println "Kopiere Quelldateien und build.gradle in das GitHub Repository..."
+        file("../minecraft/movingblocks/src").mkdirs()
+    }
+}
+task commitAndPushToGitHub(type: Exec) {
+    dependsOn copyJarToRepo, copySourcesToRepo
+    
+    workingDir "../minecraft"
+
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'cmd', '/c', 'git add . && git commit -m "Update MovingBlocks Plugin to version ' + project.version + '" && git push'
+    } else {
+        commandLine 'sh', '-c', 'git add . && git commit -m "Update MovingBlocks Plugin to version ' + project.version + '" && git push'
+    }
+    
+    ignoreExitValue true
+    
+    doFirst {
+        println "Commite und pushe Änderungen zu GitHub..."
+    }
+    
+    doLast {
+        println "GitHub-Update abgeschlossen."
+    }
+}
+
+build.finalizedBy commitAndPushToGitHub
+
+task showVersion {
+    doLast {
+        println "Aktuelle Version: ${project.version}"
+        println "Jeder Build lädt die Änderungen automatisch zu GitHub hoch."
+        println "Um eine neue Version zu bauen, führe './gradlew clean build' aus."
+    }
+}
+
+defaultTasks 'showVersion'
 
 def targetJavaVersion = 21
 java {
