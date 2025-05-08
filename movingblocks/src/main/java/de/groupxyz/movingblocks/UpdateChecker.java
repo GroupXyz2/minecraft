@@ -40,6 +40,7 @@ public class UpdateChecker {
     
     public UpdateChecker(Plugin plugin) {
         this.plugin = plugin;
+        plugin.saveDefaultConfig();
         ensureConfigDefaults();
 
         this.currentVersion = plugin.getDescription().getVersion();
@@ -49,7 +50,7 @@ public class UpdateChecker {
         
         this.enabled = plugin.getConfig().getBoolean("update-checker.enabled", true);
         this.notifyAdmins = plugin.getConfig().getBoolean("update-checker.notify-admins", true);
-        this.autoUpdate = plugin.getConfig().getBoolean("update-checker.auto-update", false);
+        this.autoUpdate = plugin.getConfig().getBoolean("update-checker.auto-update", true);
         this.autoRestart = plugin.getConfig().getBoolean("update-checker.auto-restart", false);
         
         File backupDir = new File(plugin.getDataFolder(), "backups");
@@ -74,7 +75,7 @@ public class UpdateChecker {
             changed = true;
         }
         if (!plugin.getConfig().contains("update-checker.auto-update")) {
-            plugin.getConfig().set("update-checker.auto-update", false);
+            plugin.getConfig().set("update-checker.auto-update", true);
             changed = true;
         }
         if (!plugin.getConfig().contains("update-checker.auto-restart")) {
