@@ -21,9 +21,17 @@ dependencies {
     compileOnly "io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT"
 }
 
+def gitHubUser = project.findProperty('gpr.user') ?: System.getenv('GITHUB_USERNAME')
+def gitHubToken = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
+
+def gitHubCredentials = ""
+if (gitHubUser && gitHubToken) {
+    gitHubCredentials = "${gitHubUser}:${gitHubToken}@"
+}
+
 task publishToGitHub(type: Exec) {
     dependsOn jar
-    
+
     workingDir "."
     
     doFirst {
@@ -46,13 +54,23 @@ task publishToGitHub(type: Exec) {
         
         println "Bereite Git-Befehle vor..."
     }
-    
+
     if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-        commandLine 'cmd', '/c', 'git add github-upload/movingblocks && git commit -m "Update MovingBlocks Plugin to version ' + project.version + '" && git push origin master'
+        if (gitHubUser && gitHubToken) {
+            def remoteUrl = "https://${gitHubCredentials}github.com/GroupXyz2/minecraft.git"
+            commandLine 'cmd', '/c', "git add github-upload/movingblocks && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push ${remoteUrl} master"
+        } else {
+            commandLine 'cmd', '/c', "git add github-upload/movingblocks && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push origin master"
+        }
     } else {
-        commandLine 'sh', '-c', 'git add github-upload/movingblocks && git commit -m "Update MovingBlocks Plugin to version ' + project.version + '" && git push origin master'
+        if (gitHubUser && gitHubToken) {
+            def remoteUrl = "https://${gitHubCredentials}github.com/GroupXyz2/minecraft.git"
+            commandLine 'sh', '-c', "git add github-upload/movingblocks && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push ${remoteUrl} master"
+        } else {
+            commandLine 'sh', '-c', "git add github-upload/movingblocks && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push origin master"
+        }
     }
-    
+
     ignoreExitValue true
     
     doLast {
