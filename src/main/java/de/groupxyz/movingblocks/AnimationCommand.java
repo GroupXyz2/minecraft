@@ -1,18 +1,23 @@
 package de.groupxyz.movingblocks;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class AnimationCommand implements CommandExecutor, TabCompleter {
+public class AnimationCommand implements CommandExecutor, TabCompleter, Listener {
     private final Plugin plugin;
     private final AnimationManager animationManager;
     private final AnimationEventHandler animationEventHandler;
@@ -21,8 +26,12 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
             "clear", "delete", "list", "enable", "disable", "frame",
             "mode", "preview", "duplicate", "rename", "deselect",
             "finalize", "paste", "pasteframe", "info", "protect",
-            "event"
+            "event", "multiselect"
     );
+
+    private final Map<UUID, Location> firstPoint = new HashMap<>();
+    private final Map<UUID, Location> secondPoint = new HashMap<>();
+    private final Set<UUID> worldEditMode = new HashSet<>();
 
     public AnimationCommand(Plugin plugin, AnimationManager animationManager, AnimationEventHandler animationEventHandler) {
         this.plugin = plugin;
@@ -45,6 +54,16 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
         }
 
         switch (args[0].toLowerCase()) {
+            case "multiselect":
+                if (worldEditMode.contains(player.getUniqueId())) {
+                    worldEditMode.remove(player.getUniqueId());
+                    player.sendMessage("§aMulti selection mode disabled.");
+                } else {
+                    worldEditMode.add(player.getUniqueId());
+                    player.sendMessage("§aMulti selection mode enabled. Use the stick to select two points.");
+                }
+                return true;
+
             case "stick":
                 ItemStack stick = animationManager.createSelectionStick();
                 player.getInventory().addItem(stick);
@@ -603,6 +622,36 @@ public class AnimationCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§e/mb info <name> §7- Show detailed information about an animation");
         player.sendMessage("§e/mb protect <name> [on|off] §7- Protect animation blocks from being destroyed");
         player.sendMessage("§e/mb event §7- Manage animation trigger events");
+        player.sendMessage("§e/mb toggleaxe §7- Toggle WorldEdit-like selection mode");
+    }
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        if (!worldEditMode.contains(player.getUniqueId())) {
+            return;
+        }
+
+        ItemStack item = event.getItem();
+        if (item == null || !item.getType().equals(Material.STICK)) {
+            return;
+        }
+
+        if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            firstPoint.put(player.getUniqueId(), event.getClickedBlock().getLocation());
+            player.sendMessage("§aFirst point set at: " + formatLocation(event.getClickedBlock().getLocation()));
+        } else if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            secondPoint.put(player.getUniqueId(), event.getClickedBlock().getLocation());
+            player.sendMessage("§aSecond point set at: " + formatLocation(event.getClickedBlock().getLocation()));
+
+            Location first = firstPoint.get(player.getUniqueId());
+            Location second = secondPoint.get(player.getUniqueId());
+            if (first != null && second != null) {
+                animationManager.selectArea(player, first, second);
+            }
+        }
+
+        event.setCancelled(true);
     }
 
     @Override

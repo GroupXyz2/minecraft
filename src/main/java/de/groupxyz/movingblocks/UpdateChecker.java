@@ -40,6 +40,9 @@ public class UpdateChecker {
     
     public UpdateChecker(Plugin plugin) {
         this.plugin = plugin;
+        plugin.saveDefaultConfig();
+        ensureConfigDefaults();
+
         this.currentVersion = plugin.getDescription().getVersion();
         this.githubBaseUrl = "https://github.com/GroupXyz2/minecraft/blob/main/movingblocks/";
         this.githubDownloadUrl = "https://github.com/GroupXyz2/minecraft/raw/main/movingblocks/";
@@ -47,7 +50,7 @@ public class UpdateChecker {
         
         this.enabled = plugin.getConfig().getBoolean("update-checker.enabled", true);
         this.notifyAdmins = plugin.getConfig().getBoolean("update-checker.notify-admins", true);
-        this.autoUpdate = plugin.getConfig().getBoolean("update-checker.auto-update", false);
+        this.autoUpdate = plugin.getConfig().getBoolean("update-checker.auto-update", true);
         this.autoRestart = plugin.getConfig().getBoolean("update-checker.auto-restart", false);
         
         File backupDir = new File(plugin.getDataFolder(), "backups");
@@ -60,6 +63,32 @@ public class UpdateChecker {
         }
     }
     
+    private void ensureConfigDefaults() {
+        boolean changed = false;
+
+        if (!plugin.getConfig().contains("update-checker.enabled")) {
+            plugin.getConfig().set("update-checker.enabled", true);
+            changed = true;
+        }
+        if (!plugin.getConfig().contains("update-checker.notify-admins")) {
+            plugin.getConfig().set("update-checker.notify-admins", true);
+            changed = true;
+        }
+        if (!plugin.getConfig().contains("update-checker.auto-update")) {
+            plugin.getConfig().set("update-checker.auto-update", true);
+            changed = true;
+        }
+        if (!plugin.getConfig().contains("update-checker.auto-restart")) {
+            plugin.getConfig().set("update-checker.auto-restart", false);
+            changed = true;
+        }
+
+        if (changed) {
+            plugin.saveConfig();
+            plugin.getLogger().info("Missing configuration keys were added with default values.");
+        }
+    }
+
     public void checkForUpdates() {
         if (!enabled) {
             return;
