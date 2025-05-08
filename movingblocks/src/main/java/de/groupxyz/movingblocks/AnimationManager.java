@@ -87,9 +87,6 @@ public class AnimationManager {
         }
     }
     
-    /**
-     * Repräsentiert einen Frame der Animation mit BlockData-Unterstützung
-     */
     private static class BlockFrame {
         private final Map<Location, BlockInfo> blocks;
         
@@ -106,9 +103,6 @@ public class AnimationManager {
         }
     }
     
-    /**
-     * Speichert alle relevanten Informationen eines Blocks inklusive NBT
-     */
     private static class BlockInfo {
         private final Material material;
         private final BlockData blockData;
@@ -118,6 +112,12 @@ public class AnimationManager {
             this.material = block.getType();
             this.blockData = block.getBlockData().clone();
             this.blockState = block.getState();
+        }
+        
+        public BlockInfo(BlockInfo other) {
+            this.material = other.material;
+            this.blockData = other.blockData.clone();
+            this.blockState = other.blockState;
         }
         
         public Material getMaterial() {
@@ -556,14 +556,12 @@ public class AnimationManager {
         animation.speed = speed;
         player.sendMessage("§aAnimation speed set to " + speed + " ticks.");
 
-        // Update running personal animation if needed
         if (runningAnimations.containsKey(playerUUID)) {
             BukkitRunnable task = runningAnimations.get(playerUUID);
             task.cancel();
             startAnimation(player);
         }
-        
-        // Update global animation if it's running
+
         if (globalAnimations.containsKey(animName)) {
             UUID animationId = globalAnimations.get(animName);
             BukkitRunnable task = runningAnimations.get(animationId);
@@ -655,7 +653,7 @@ public class AnimationManager {
             BlockFrame newFrame = new BlockFrame();
             for (Map.Entry<Location, BlockInfo> entry : sourceFrame.getBlocks().entrySet()) {
                 Location clonedLoc = entry.getKey().clone();
-                newFrame.getBlocks().put(clonedLoc, entry.getValue());
+                newFrame.getBlocks().put(clonedLoc, new BlockInfo(entry.getValue()));
             }
             newAnim.frames.add(newFrame);
         }
@@ -727,6 +725,32 @@ public class AnimationManager {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null && name.equals(playerCurrentAnimation.get(uuid))) {
                 stopAnimation(p);
+            }
+        }
+        
+        if (globalAnimations.containsKey(name)) {
+            UUID animationId = globalAnimations.get(name);
+            BukkitRunnable task = runningAnimations.get(animationId);
+            if (task != null) {
+                task.cancel();
+                runningAnimations.remove(animationId);
+            }
+            globalAnimations.remove(name);
+            player.sendMessage("§aGlobally running animation '" + name + "' has been stopped.");
+        }
+        
+        if (animation.isProtected()) {
+            for (BlockFrame frame : animation.frames) {
+                for (Location loc : frame.getBlocks().keySet()) {
+                    protectedBlocks.remove(loc);
+                }
+            }
+            protectedAnimations.remove(name);
+        }
+        
+        for (Map.Entry<UUID, String> entry : new HashMap<>(playerCurrentAnimation).entrySet()) {
+            if (name.equals(entry.getValue())) {
+                playerCurrentAnimation.remove(entry.getKey());
             }
         }
 
@@ -1225,7 +1249,7 @@ public class AnimationManager {
                     oldLoc.getZ() + offsetZ
                 );
 
-                newFrame.getBlocks().put(newLoc, blockInfo);
+                newFrame.getBlocks().put(newLoc, new BlockInfo(blockInfo));
             }
             
             newAnimation.frames.add(newFrame);
@@ -1333,7 +1357,7 @@ public class AnimationManager {
                         oldLoc.getZ() + offsetZ
                     );
 
-                    newFrame.getBlocks().put(newLoc, blockInfo);
+                    newFrame.getBlocks().put(newLoc, new BlockInfo(blockInfo));
                 }
                 
                 newAnimation.frames.add(newFrame);

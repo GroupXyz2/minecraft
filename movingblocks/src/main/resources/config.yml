@@ -1,3 +1,5 @@
 update-checker:
   enabled: true
   notify-admins: true
+  auto-update: true
+  auto-restart: false
