@@ -31,7 +31,7 @@ if (gitHubUser && gitHubToken) {
 
 task publishToGitHub(type: Exec) {
     dependsOn jar
-
+    
     workingDir "."
     
     doFirst {
@@ -54,20 +54,20 @@ task publishToGitHub(type: Exec) {
         
         println "Bereite Git-Befehle vor..."
     }
-
+    
     if (System.getProperty('os.name').toLowerCase().contains('windows')) {
         if (gitHubUser && gitHubToken) {
             def remoteUrl = "https://${gitHubCredentials}github.com/GroupXyz2/minecraft.git"
-            commandLine 'cmd', '/c', "git add github-upload/movingblocks && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push ${remoteUrl} master"
+            commandLine 'cmd', '/c', "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push ${remoteUrl} master"
         } else {
-            commandLine 'cmd', '/c', "git add github-upload/movingblocks && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push origin master"
+            commandLine 'cmd', '/c', "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push origin master"
         }
     } else {
         if (gitHubUser && gitHubToken) {
             def remoteUrl = "https://${gitHubCredentials}github.com/GroupXyz2/minecraft.git"
-            commandLine 'sh', '-c', "git add github-upload/movingblocks && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push ${remoteUrl} master"
+            commandLine 'sh', '-c', "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push ${remoteUrl} master"
         } else {
-            commandLine 'sh', '-c', "git add github-upload/movingblocks && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push origin master"
+            commandLine 'sh', '-c', "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push origin master"
         }
     }
 
