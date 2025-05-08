@@ -21,14 +21,6 @@ dependencies {
     compileOnly "io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT"
 }
 
-def gitHubUser = project.findProperty('gpr.user') ?: System.getenv('GITHUB_USERNAME')
-def gitHubToken = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
-
-def gitHubCredentials = ""
-if (gitHubUser && gitHubToken) {
-    gitHubCredentials = "${gitHubUser}:${gitHubToken}@"
-}
-
 task publishToGitHub(type: Exec) {
     dependsOn jar
     
@@ -55,22 +47,27 @@ task publishToGitHub(type: Exec) {
         println "Bereite Git-Befehle vor..."
     }
     
+    def gitHubUser = project.findProperty('gpr.user') ?: System.getenv('GITHUB_USERNAME') ?: ""
+    def gitHubToken = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN') ?: ""
+
     if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        def commitCommand = "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\""
+        
         if (gitHubUser && gitHubToken) {
-            def remoteUrl = "https://${gitHubCredentials}github.com/GroupXyz2/minecraft.git"
-            commandLine 'cmd', '/c', "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push ${remoteUrl} master"
+            commandLine 'cmd', '/c', "${commitCommand} && git -c credential.helper= -c credential.helper='!f() { echo username=\"${gitHubUser}\"; echo password=\"${gitHubToken}\"; }; f' push origin master"
         } else {
-            commandLine 'cmd', '/c', "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push origin master"
+            commandLine 'cmd', '/c', "${commitCommand} && git push origin master"
         }
     } else {
+        def commitCommand = "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\""
+        
         if (gitHubUser && gitHubToken) {
-            def remoteUrl = "https://${gitHubCredentials}github.com/GroupXyz2/minecraft.git"
-            commandLine 'sh', '-c', "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push ${remoteUrl} master"
+            commandLine 'sh', '-c', "${commitCommand} && git -c credential.helper= -c credential.helper='!f() { echo username=\"${gitHubUser}\"; echo password=\"${gitHubToken}\"; }; f' push origin master"
         } else {
-            commandLine 'sh', '-c', "git add github-upload/movingblocks/* github-upload/movingblocks/src/* && git commit -m \"Update MovingBlocks Plugin to version ${project.version}\" && git push origin master"
+            commandLine 'sh', '-c', "${commitCommand} && git push origin master"
         }
     }
-
+    
     ignoreExitValue true
     
     doLast {
