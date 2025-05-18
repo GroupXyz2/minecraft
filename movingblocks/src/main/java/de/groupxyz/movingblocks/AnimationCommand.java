@@ -448,7 +448,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                 return true;
 
             case "checkupdate":
-                if (args.length < 2) {
+                if (args.length != 1) {
                     player.sendMessage("§cUsage: /mb checkupdate");
                     return true;
                 }
