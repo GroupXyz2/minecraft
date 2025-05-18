@@ -3,6 +3,8 @@ package de.groupxyz.movingblocks;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -535,25 +537,40 @@ public class AnimationManager {
                 String sound = animation.getSound(frame);
                 if (sound != null && !sound.isEmpty()) {
                     try {
-                        Object[] soundInfo = parseSoundInfo(sound);                        String soundName = (String) soundInfo[0];
+                        Object[] soundInfo = parseSoundInfo(sound);                        
+                        String soundName = (String) soundInfo[0];
                         float radius = (float) soundInfo[1];
                         boolean isGlobal = (boolean) soundInfo[2];
                         
-                        // Calculate animation center point for sound source
                         BlockFrame currentFrame = animation.frames.get(frame);
-                        Location centerLocation = calculateAnimationCenter(currentFrame);
-
-                        if (isGlobal) {
+                        Location centerLocation = calculateAnimationCenter(currentFrame);                        if (isGlobal) {
                             for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                                onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, 1.0f, 1.0f);
+                                try {
+                                    Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                    onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
+                                } catch (IllegalArgumentException ex) {
+                                    try {
+                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                    } catch (Exception e) {
+                                        plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                    }
+                                }
                             }
                         } else {
                             for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                                // Use animation center as the sound source
                                 if (centerLocation != null && 
                                     onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld()) &&
                                     onlinePlayer.getLocation().distanceSquared(centerLocation) <= radius * radius) {
-                                    onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, 1.0f, 1.0f);
+                                    try {
+                                        Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
+                                    } catch (IllegalArgumentException ex) {
+                                        try {
+                                            onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                        } catch (Exception e) {
+                                            plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -588,7 +605,7 @@ public class AnimationManager {
             if (name.equals(currentAnim)) {
                 stopAnimation(player);
             } else {
-                player.sendMessage("§cYou are not running animation '" + name + "'.");
+                player.sendMessage("§cYou are not running animation '" + name + "', you might need to select it first.");
             }
             return;
         }
@@ -897,7 +914,6 @@ public class AnimationManager {
                     config.set(path + ".z", loc.getZ());
                     config.set(path + ".material", blockInfo.getMaterial().name());
                     
-                    // Speichere BlockData als String
                     config.set(path + ".blockData", blockInfo.getBlockData().getAsString());
 
                     blockIndex++;
@@ -1690,24 +1706,17 @@ public class AnimationManager {
         return frameNumbers;
     }
     
-    // Get a list of all Minecraft sound names for tab completion
     public List<String> getSuggestableSounds() {
         List<String> sounds = new ArrayList<>();
         
         try {
-            // Get all sounds from the Sound enum
             for (org.bukkit.Sound sound : org.bukkit.Sound.values()) {
                 String soundName = sound.getKey().toString();
                 sounds.add(soundName);
             }
             
-            // Sort alphabetically for better usability
             Collections.sort(sounds);
-            
-            // Log the number of sounds found
-            plugin.getLogger().info("Found " + sounds.size() + " sounds from the Minecraft Sound enum");
         } catch (Exception e) {
-            // Fallback with some common sounds if there's an error
             plugin.getLogger().warning("Failed to get all sound keys: " + e.getMessage());
             sounds.add("minecraft:block.note_block.bass");
             sounds.add("minecraft:block.note_block.bell");

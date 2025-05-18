@@ -653,7 +653,8 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
         player.sendMessage("§e/mb select <name> §7- Select an animation to work with");
         player.sendMessage("§e/mb frame add §7- Add a frame to current animation");
         player.sendMessage("§e/mb frame delete <number> §7- Delete a specific frame");
-        player.sendMessage("§e/mb frame preview <number> §7- Preview a specific frame");        player.sendMessage("§e/mb sound add <frame> <sound> [radius] [global] §7- Add a sound to a specific frame");
+        player.sendMessage("§e/mb frame preview <number> §7- Preview a specific frame");        
+        player.sendMessage("§e/mb sound add <frame> <sound> [radius] [global] §7- Add a sound to a specific frame");
         player.sendMessage("§e/mb sound remove <frame> §7- Remove a sound from a frame");
         player.sendMessage("§e/mb sound list §7- List all sounds in the animation");
         player.sendMessage("§e/mb play §7- Start the current animation");
@@ -724,38 +725,10 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                 return Arrays.asList("create", "list", "delete", "info").stream()
                         .filter(s -> s.startsWith(args[1].toLowerCase()))
                         .collect(Collectors.toList());
-            }
-            if (args[0].equalsIgnoreCase("sound")) {
-                if (args.length == 2) {
-                    return Arrays.asList("add", "remove", "list").stream()
-                            .filter(s -> s.startsWith(args[1].toLowerCase()))
-                            .collect(Collectors.toList());
-                }
-                
-                if (!(sender instanceof Player)) {
-                    return new ArrayList<>();
-                }
-                Player cmdPlayer = (Player) sender;
-                
-                if (args.length == 3 && (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("remove"))) {
-                    return animationManager.getFrameNumbers(cmdPlayer).stream()
-                            .map(String::valueOf)
-                            .filter(s -> s.startsWith(args[2]))
-                            .collect(Collectors.toList());
-                } else if (args.length == 4 && args[1].equalsIgnoreCase("add")) {
-                    return animationManager.getSuggestableSounds().stream()
-                            .filter(s -> s.toLowerCase().contains(args[3].toLowerCase()))
-                            .collect(Collectors.toList());
-                } else if (args.length == 5 && args[1].equalsIgnoreCase("add")) {
-                    return Arrays.asList("5", "10", "20", "30", "50", "100").stream()
-                            .filter(s -> s.startsWith(args[4]))
-                            .collect(Collectors.toList());
-                } else if (args.length == 6 && args[1].equalsIgnoreCase("add")) {
-                    return Arrays.asList("true", "false").stream()
-                            .filter(s -> s.startsWith(args[5].toLowerCase()))
-                            .collect(Collectors.toList());
-                }
-                return new ArrayList<>();
+            }            if (args[0].equalsIgnoreCase("sound")) {
+                return Arrays.asList("add", "remove", "list").stream()
+                        .filter(s -> s.startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
             }
             if (args[0].equalsIgnoreCase("frame")) {
                 return Arrays.asList("add", "delete", "preview").stream()
@@ -804,10 +777,14 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                     options.add("global");
                     return options;
                 }
-            }
-            if (args[0].equalsIgnoreCase("sound")) {
+            }            if (args[0].equalsIgnoreCase("sound")) {
                 if (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("remove")) {
-                    return Arrays.asList("0", "1", "2", "3", "4", "5", "6", "7", "8", "9").stream()
+                    if (!(sender instanceof Player)) {
+                        return new ArrayList<>();
+                    }
+                    Player cmdPlayer = (Player) sender;
+                    return animationManager.getFrameNumbers(cmdPlayer).stream()
+                            .map(String::valueOf)
                             .filter(s -> s.startsWith(args[2]))
                             .collect(Collectors.toList());
                 }
@@ -818,10 +795,20 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                     .collect(Collectors.toList());
         }
 
-        if (args.length == 5 && args[0].equalsIgnoreCase("event") && 
-                args[1].equalsIgnoreCase("create") && 
-                (args[2].equalsIgnoreCase("block") || args[2].equalsIgnoreCase("region"))) {
+        if (args.length == 5 && args[0].equalsIgnoreCase("sound") && args[1].equalsIgnoreCase("add")) {
+            return Arrays.asList("5", "10", "20", "30", "50", "100").stream()
+                    .filter(s -> s.startsWith(args[4]))
+                    .collect(Collectors.toList());
+        }
 
+        if (args.length == 6 && args[0].equalsIgnoreCase("sound") && args[1].equalsIgnoreCase("add")) {
+            return Arrays.asList("true", "false").stream()
+                    .filter(s -> s.startsWith(args[5].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length == 5 && args[0].equalsIgnoreCase("event") && 
+                args[1].equalsIgnoreCase("create")) {
             return animationManager.getAnimationNames().stream()
                     .filter(name -> name.startsWith(args[4].toLowerCase()))
                     .collect(Collectors.toList());
