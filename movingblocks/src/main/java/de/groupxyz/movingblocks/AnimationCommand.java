@@ -21,22 +21,24 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
     private final Plugin plugin;
     private final AnimationManager animationManager;
     private final AnimationEventHandler animationEventHandler;
+    private final UpdateChecker updateChecker;
     private final List<String> mainCommands = Arrays.asList(
             "stick", "create", "select", "play", "stop", "speed",
             "clear", "delete", "list", "enable", "disable", "frame",
             "mode", "preview", "duplicate", "rename", "deselect",
             "finalize", "paste", "pasteframe", "info", "protect",
-            "event", "multiselect", "sound"
+            "event", "multiselect", "sound", "checkupdate"
     );
 
     private final Map<UUID, Location> firstPoint = new HashMap<>();
     private final Map<UUID, Location> secondPoint = new HashMap<>();
     private final Set<UUID> worldEditMode = new HashSet<>();
 
-    public AnimationCommand(Plugin plugin, AnimationManager animationManager, AnimationEventHandler animationEventHandler) {
+    public AnimationCommand(Plugin plugin, AnimationManager animationManager, AnimationEventHandler animationEventHandler, UpdateChecker updateChecker) {
         this.plugin = plugin;
         this.animationManager = animationManager;
         this.animationEventHandler = animationEventHandler;
+        this.updateChecker = updateChecker;
     }
 
     @Override
@@ -442,6 +444,19 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                     animationManager.listSounds(player);
                 } else {
                     player.sendMessage("§cUnknown sound subcommand. Use add, remove, or list.");
+                }
+                return true;
+
+            case "checkupdate":
+                if (args.length < 2) {
+                    player.sendMessage("§cUsage: /mb checkupdate");
+                    return true;
+                }
+
+                if (updateChecker != null) {
+                    updateChecker.checkForUpdates();
+                } else {
+                    player.sendMessage("§cUpdate checker is not enabled.");
                 }
                 return true;
 
