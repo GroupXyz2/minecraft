@@ -329,18 +329,34 @@ public class AnimationManager {
                         boolean isGlobal = (boolean) soundInfo[2];
                         
                         BlockFrame frame = animation.frames.get(frameIndex);
-                        Location centerLocation = calculateAnimationCenter(frame);
-
-                        if (isGlobal) {
+                        Location centerLocation = calculateAnimationCenter(frame);                        if (isGlobal) {
                             for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                                onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, 1.0f, 1.0f);
+                                try {
+                                    Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                    onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
+                                } catch (IllegalArgumentException ex) {
+                                    try {
+                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                    } catch (Exception e) {
+                                        plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                    }
+                                }
                             }
                         } else {
                             for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
                                 if (centerLocation != null && 
                                     onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld()) &&
                                     onlinePlayer.getLocation().distanceSquared(centerLocation) <= radius * radius) {
-                                    onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, 1.0f, 1.0f);
+                                    try {
+                                        Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
+                                    } catch (IllegalArgumentException ex) {
+                                        try {
+                                            onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                        } catch (Exception e) {
+                                            plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                        }
+                                    }
                                 }
                             }
                         }
