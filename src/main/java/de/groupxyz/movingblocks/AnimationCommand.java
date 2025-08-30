@@ -21,22 +21,24 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
     private final Plugin plugin;
     private final AnimationManager animationManager;
     private final AnimationEventHandler animationEventHandler;
+    private final UpdateChecker updateChecker;
     private final List<String> mainCommands = Arrays.asList(
             "stick", "create", "select", "play", "stop", "speed",
             "clear", "delete", "list", "enable", "disable", "frame",
             "mode", "preview", "duplicate", "rename", "deselect",
             "finalize", "paste", "pasteframe", "info", "protect",
-            "event", "multiselect"
+            "event", "multiselect", "sound", "checkupdate"
     );
 
     private final Map<UUID, Location> firstPoint = new HashMap<>();
     private final Map<UUID, Location> secondPoint = new HashMap<>();
     private final Set<UUID> worldEditMode = new HashSet<>();
 
-    public AnimationCommand(Plugin plugin, AnimationManager animationManager, AnimationEventHandler animationEventHandler) {
+    public AnimationCommand(Plugin plugin, AnimationManager animationManager, AnimationEventHandler animationEventHandler, UpdateChecker updateChecker) {
         this.plugin = plugin;
         this.animationManager = animationManager;
         this.animationEventHandler = animationEventHandler;
+        this.updateChecker = updateChecker;
     }
 
     @Override
@@ -393,6 +395,71 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                 animationManager.toggleProtection(player, protectName, setProtection);
                 return true;
 
+            case "sound":
+                if (args.length < 2) {
+                    player.sendMessage("§cUsage: /mb sound <add|remove|list>");
+                    return true;
+                }                if (args[1].equalsIgnoreCase("add")) {
+                    if (args.length < 4) {
+                        player.sendMessage("§cUsage: /mb sound add <frame_number> <sound_name> [radius] [global]");
+                        return true;
+                    }
+                    try {
+                        int frameIndex = Integer.parseInt(args[2]);
+                        String soundName = args[3];
+                        float radius = 10.0f; 
+                        boolean isGlobal = false; 
+                        
+                        if (args.length >= 5) {
+                            try {
+                                radius = Float.parseFloat(args[4]);
+                            } catch (NumberFormatException ex) {
+                                player.sendMessage("§cInvalid radius value! Using default: 10.0");
+                            }
+                        }
+                        
+                        if (args.length >= 6) {
+                            isGlobal = args[5].equalsIgnoreCase("true") || 
+                                       args[5].equalsIgnoreCase("1") ||
+                                       args[5].equalsIgnoreCase("yes") ||
+                                       args[5].equalsIgnoreCase("global");
+                        }
+                        
+                        animationManager.addSoundToFrame(player, frameIndex, soundName, radius, isGlobal);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage("§cPlease enter a valid frame number!");
+                    }
+                } else if (args[1].equalsIgnoreCase("remove")) {
+                    if (args.length < 3) {
+                        player.sendMessage("§cUsage: /mb sound remove <frame_number>");
+                        return true;
+                    }
+                    try {
+                        int frameIndex = Integer.parseInt(args[2]);
+                        animationManager.removeSoundFromFrame(player, frameIndex);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage("§cPlease enter a valid frame number!");
+                    }
+                } else if (args[1].equalsIgnoreCase("list")) {
+                    animationManager.listSounds(player);
+                } else {
+                    player.sendMessage("§cUnknown sound subcommand. Use add, remove, or list.");
+                }
+                return true;
+
+            case "checkupdate":
+                if (args.length != 1) {
+                    player.sendMessage("§cUsage: /mb checkupdate");
+                    return true;
+                }
+
+                if (updateChecker != null) {
+                    updateChecker.checkForUpdates();
+                } else {
+                    player.sendMessage("§cUpdate checker is not enabled.");
+                }
+                return true;
+
             default:
                 sendHelp(player);
                 return true;
@@ -601,7 +668,10 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
         player.sendMessage("§e/mb select <name> §7- Select an animation to work with");
         player.sendMessage("§e/mb frame add §7- Add a frame to current animation");
         player.sendMessage("§e/mb frame delete <number> §7- Delete a specific frame");
-        player.sendMessage("§e/mb frame preview <number> §7- Preview a specific frame");
+        player.sendMessage("§e/mb frame preview <number> §7- Preview a specific frame");        
+        player.sendMessage("§e/mb sound add <frame> <sound> [radius] [global] §7- Add a sound to a specific frame");
+        player.sendMessage("§e/mb sound remove <frame> §7- Remove a sound from a frame");
+        player.sendMessage("§e/mb sound list §7- List all sounds in the animation");
         player.sendMessage("§e/mb play §7- Start the current animation");
         player.sendMessage("§e/mb play <name> §7- Start a specific animation");
         player.sendMessage("§e/mb play <name> global §7- Start a specific animation globally");
@@ -665,10 +735,13 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                     .filter(cmd -> cmd.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
-
         if (args.length == 2) {
             if (args[0].equalsIgnoreCase("event")) {
                 return Arrays.asList("create", "list", "delete", "info").stream()
+                        .filter(s -> s.startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
+            }            if (args[0].equalsIgnoreCase("sound")) {
+                return Arrays.asList("add", "remove", "list").stream()
                         .filter(s -> s.startsWith(args[1].toLowerCase()))
                         .collect(Collectors.toList());
             }
@@ -719,13 +792,38 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                     options.add("global");
                     return options;
                 }
+            }            if (args[0].equalsIgnoreCase("sound")) {
+                if (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("remove")) {
+                    if (!(sender instanceof Player)) {
+                        return new ArrayList<>();
+                    }
+                    Player cmdPlayer = (Player) sender;
+                    return animationManager.getFrameNumbers(cmdPlayer).stream()
+                            .map(String::valueOf)
+                            .filter(s -> s.startsWith(args[2]))
+                            .collect(Collectors.toList());
+                }
             }
+        }        if (args.length == 4 && args[0].equalsIgnoreCase("sound") && args[1].equalsIgnoreCase("add")) {
+            return animationManager.getSuggestableSounds().stream()
+                    .filter(s -> s.toLowerCase().contains(args[3].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length == 5 && args[0].equalsIgnoreCase("sound") && args[1].equalsIgnoreCase("add")) {
+            return Arrays.asList("5", "10", "20", "30", "50", "100").stream()
+                    .filter(s -> s.startsWith(args[4]))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length == 6 && args[0].equalsIgnoreCase("sound") && args[1].equalsIgnoreCase("add")) {
+            return Arrays.asList("true", "false").stream()
+                    .filter(s -> s.startsWith(args[5].toLowerCase()))
+                    .collect(Collectors.toList());
         }
 
         if (args.length == 5 && args[0].equalsIgnoreCase("event") && 
-                args[1].equalsIgnoreCase("create") && 
-                (args[2].equalsIgnoreCase("block") || args[2].equalsIgnoreCase("region"))) {
-
+                args[1].equalsIgnoreCase("create")) {
             return animationManager.getAnimationNames().stream()
                     .filter(name -> name.startsWith(args[4].toLowerCase()))
                     .collect(Collectors.toList());

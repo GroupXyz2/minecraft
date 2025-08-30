@@ -3,6 +3,8 @@ package de.groupxyz.movingblocks;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -67,6 +69,7 @@ public class AnimationManager {
         private UUID owner;
         private boolean removeBlocksAfterFrame;
         private boolean isProtected;
+        private Map<Integer, String> frameSounds;
 
         public Animation(String name, UUID owner) {
             this.name = name;
@@ -76,6 +79,7 @@ public class AnimationManager {
             this.owner = owner;
             this.removeBlocksAfterFrame = false;
             this.isProtected = false;
+            this.frameSounds = new HashMap<>();
         }
 
         public boolean isProtected() {
@@ -84,6 +88,22 @@ public class AnimationManager {
 
         public void setProtected(boolean isProtected) {
             this.isProtected = isProtected;
+        }
+        
+        public void addSound(int frameIndex, String soundName) {
+            frameSounds.put(frameIndex, soundName);
+        }
+        
+        public void removeSound(int frameIndex) {
+            frameSounds.remove(frameIndex);
+        }
+        
+        public String getSound(int frameIndex) {
+            return frameSounds.get(frameIndex);
+        }
+        
+        public Map<Integer, String> getAllSounds() {
+            return new HashMap<>(frameSounds);
         }
     }
     
@@ -299,9 +319,55 @@ public class AnimationManager {
             public void run() {
                 if (frameIndex >= animation.frames.size()) {
                     frameIndex = 0;
+                }                playFrame(null, animation.frames.get(frameIndex), animation.removeBlocksAfterFrame);
+                  String sound = animation.getSound(frameIndex);                
+                if (sound != null && !sound.isEmpty()) {
+                    try {
+                        Object[] soundInfo = parseSoundInfo(sound);
+                        String soundName = (String) soundInfo[0];
+                        float radius = (float) soundInfo[1];
+                        boolean isGlobal = (boolean) soundInfo[2];
+                        //plugin.getLogger().info("Global animation - sound info parsed: name=" + soundName + ", radius=" + radius + ", isGlobal=" + isGlobal);
+                        
+                        BlockFrame frame = animation.frames.get(frameIndex);
+                        Location centerLocation = calculateAnimationCenter(frame);                        if (isGlobal) {
+                            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                                try {
+                                    Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                    onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
+                                    //plugin.getLogger().info("(1) Playing sound: " + soundName + " to player: " + onlinePlayer.getName());
+                                } catch (IllegalArgumentException ex) {
+                                    try {
+                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                    } catch (Exception e) {
+                                        plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                    }
+                                }
+                            }
+                        } else {
+                            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                                if (centerLocation != null && 
+                                    onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld()) &&
+                                    onlinePlayer.getLocation().distanceSquared(centerLocation) <= radius * radius) {
+                                    try {
+                                        Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
+                                        //plugin.getLogger().info("(2) Playing sound: " + soundName + " to player: " + onlinePlayer.getName());
+                                    } catch (IllegalArgumentException ex) {
+                                        try {
+                                            onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                        } catch (Exception e) {
+                                            plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to play sound '" + sound + "': " + e.getMessage());
+                    }
                 }
-
-                playFrame(null, animation.frames.get(frameIndex), animation.removeBlocksAfterFrame);
+                
                 frameIndex++;
             }
         };
@@ -484,10 +550,57 @@ public class AnimationManager {
                     cancel();
                     runningAnimations.remove(playerUUID);
                     return;
-                }
-
-                int frame = currentFrame.get(playerUUID);
+                }                int frame = currentFrame.get(playerUUID);
                 playFrame(player, animation.frames.get(frame), animation.removeBlocksAfterFrame);
+                  String sound = animation.getSound(frame);
+                  //plugin.getLogger().info("Checking for sound at frame " + frame + ": " + (sound != null ? sound : "null"));
+                if (sound != null && !sound.isEmpty()) {
+                    try {
+                        //plugin.getLogger().info("Raw sound info before parsing: " + sound);
+                        Object[] soundInfo = parseSoundInfo(sound);                        
+                        String soundName = (String) soundInfo[0];
+                        float radius = (float) soundInfo[1];
+                        boolean isGlobal = (boolean) soundInfo[2];
+                        //plugin.getLogger().info("Sound info parsed: name=" + soundName + ", radius=" + radius + ", isGlobal=" + isGlobal);
+                        
+                        BlockFrame currentFrame = animation.frames.get(frame);
+                        Location centerLocation = calculateAnimationCenter(currentFrame);                        if (isGlobal) {
+                            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                                try {
+                                    Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                    onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
+                                    //plugin.getLogger().info("(3) Playing sound: " + soundName + " to player: " + onlinePlayer.getName());
+                                } catch (IllegalArgumentException ex) {
+                                    try {
+                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                    } catch (Exception e) {
+                                        plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                    }
+                                }
+                            }
+                        } else {
+                            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                                if (centerLocation != null && 
+                                    onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld()) &&
+                                    onlinePlayer.getLocation().distanceSquared(centerLocation) <= radius * radius) {
+                                    try {
+                                        Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
+                                        //plugin.getLogger().info("(4) Playing sound: " + soundName + " to player: " + onlinePlayer.getName());
+                                    } catch (IllegalArgumentException ex) {
+                                        try {
+                                            onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                        } catch (Exception e) {
+                                            plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to play sound '" + sound + "': " + e.getMessage());
+                    }
+                }
 
                 frame = (frame + 1) % animation.frames.size();
                 currentFrame.put(playerUUID, frame);
@@ -500,6 +613,23 @@ public class AnimationManager {
     }
 
     public void startAnimation(Player player) {
+        UUID playerUUID = player.getUniqueId();
+        String animName = playerCurrentAnimation.get(playerUUID);
+
+        if (false) { //Debugging def
+
+            if (animName != null) {
+                Animation animation = animations.get(animName);
+                if (animation != null) {
+                    Map<Integer, String> sounds = animation.getAllSounds();
+                    plugin.getLogger().info("Animation '" + animName + "' has " + sounds.size() + " sounds:");
+                    for (Map.Entry<Integer, String> entry : sounds.entrySet()) {
+                        plugin.getLogger().info("  Frame " + entry.getKey() + ": " + entry.getValue());
+                    }
+                }
+            }
+        }
+        
         startAnimation(player, null);
     }
 
@@ -515,7 +645,7 @@ public class AnimationManager {
             if (name.equals(currentAnim)) {
                 stopAnimation(player);
             } else {
-                player.sendMessage("§cYou are not running animation '" + name + "'.");
+                player.sendMessage("§cYou are not running animation '" + name + "', you might need to select it first.");
             }
             return;
         }
@@ -774,9 +904,7 @@ public class AnimationManager {
             player.sendMessage("§e" + entry.getKey() + " §7- " + status + " §7- " +
                     ownership + " §7- " + mode + " §7- §e" + anim.frames.size() + " frames");
         }
-    }
-
-    public void saveAllAnimations() {
+    }    public void saveAllAnimations() {
         File file = new File(plugin.getDataFolder(), "animations.yml");
         FileConfiguration config = YamlConfiguration.loadConfiguration(file);
 
@@ -804,6 +932,14 @@ public class AnimationManager {
             config.set(name + ".removeBlocksAfterFrame", anim.removeBlocksAfterFrame);
             config.set(name + ".isProtected", anim.isProtected());
 
+            if (!anim.frameSounds.isEmpty()) {
+                for (Map.Entry<Integer, String> soundEntry : anim.frameSounds.entrySet()) {
+                    int frameIndex = soundEntry.getKey();
+                    String soundName = soundEntry.getValue();
+                    config.set(name + ".sounds." + frameIndex, soundName);
+                }
+            }
+
             int frameIndex = 0;
             for (BlockFrame frame : anim.frames) {
                 int blockIndex = 0;
@@ -818,7 +954,6 @@ public class AnimationManager {
                     config.set(path + ".z", loc.getZ());
                     config.set(path + ".material", blockInfo.getMaterial().name());
                     
-                    // Speichere BlockData als String
                     config.set(path + ".blockData", blockInfo.getBlockData().getAsString());
 
                     blockIndex++;
@@ -858,8 +993,7 @@ public class AnimationManager {
                 animName.equals("useNbt") || 
                 animName.equals("protectedAnimations")) continue;
 
-            try {
-                UUID owner = UUID.fromString(config.getString(animName + ".owner", ""));
+            try {                UUID owner = UUID.fromString(config.getString(animName + ".owner", ""));
                 boolean enabled = config.getBoolean(animName + ".enabled", true);
                 int speed = config.getInt(animName + ".speed", 20);
                 boolean removeBlocksAfterFrame = config.getBoolean(animName + ".removeBlocksAfterFrame", false);
@@ -870,6 +1004,22 @@ public class AnimationManager {
                 animation.speed = speed;
                 animation.removeBlocksAfterFrame = removeBlocksAfterFrame;
                 animation.setProtected(isProtected);
+                
+                // Lade Sound-Informationen
+                ConfigurationSection soundsSection = config.getConfigurationSection(animName + ".sounds");
+                if (soundsSection != null) {
+                    for (String frameIndexStr : soundsSection.getKeys(false)) {
+                        try {
+                            int frameIndex = Integer.parseInt(frameIndexStr);
+                            String soundName = config.getString(animName + ".sounds." + frameIndexStr);
+                            if (soundName != null && !soundName.isEmpty()) {
+                                animation.addSound(frameIndex, soundName);
+                            }
+                        } catch (NumberFormatException e) {
+                            plugin.getLogger().warning("Invalid frame index in sound information: " + frameIndexStr);
+                        }
+                    }
+                }
 
                 ConfigurationSection framesSection = config.getConfigurationSection(animName + ".frames");
                 if (framesSection != null) {
@@ -1451,5 +1601,209 @@ public class AnimationManager {
             return false;
         }
         return animation.removeBlocksAfterFrame;
+    }
+    
+    public void addSoundToFrame(Player player, int frameIndex, String soundName) {
+        addSoundToFrame(player, frameIndex, soundName, 10.0f, false);
+    }
+
+    public void removeSoundFromFrame(Player player, int frameIndex) {
+        UUID playerUUID = player.getUniqueId();
+        String animName = playerCurrentAnimation.get(playerUUID);
+
+        if (animName == null) {
+            player.sendMessage("§cNo animation selected!");
+            return;
+        }
+
+        Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
+
+        if (frameIndex < 0 || frameIndex >= animation.frames.size()) {
+            player.sendMessage("§cInvalid frame index! Must be between 0 and " + (animation.frames.size() - 1));
+            return;
+        }
+
+        String existingSound = animation.getSound(frameIndex);
+        if (existingSound == null) {
+            player.sendMessage("§cNo sound exists for frame " + frameIndex);
+            return;
+        }
+
+        animation.removeSound(frameIndex);
+        player.sendMessage("§aRemoved sound '" + existingSound + "' from frame " + frameIndex);
+    }
+
+    public void listSounds(Player player) {
+        UUID playerUUID = player.getUniqueId();
+        String animName = playerCurrentAnimation.get(playerUUID);
+
+        if (animName == null) {
+            player.sendMessage("§cNo animation selected!");
+            return;
+        }
+
+        Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
+
+        Map<Integer, String> sounds = animation.getAllSounds();        if (sounds.isEmpty()) {
+            player.sendMessage("§eNo sounds have been added to animation '" + animName + "'");
+            return;
+        }        
+        player.sendMessage("§6§l==== Sounds for Animation '" + animName + "' ====");
+        for (Map.Entry<Integer, String> entry : sounds.entrySet()) {
+            Object[] soundInfo = parseSoundInfo(entry.getValue());
+            String soundName = (String) soundInfo[0];
+            float radius = (float) soundInfo[1];
+            boolean isGlobal = (boolean) soundInfo[2];
+            
+            String displayText = "§eFrame " + entry.getKey() + ": §f" + soundName;
+            if (isGlobal) {
+                displayText += " §7(Global)";
+            } else {
+                displayText += " §7(Radius: " + radius + ")";
+            }
+            player.sendMessage(displayText);
+        }
+    }
+       private Object[] parseSoundInfo(String soundInfo) {
+        if (soundInfo == null) return new Object[] {"", 0f, false};
+        
+        // Find the last two colons which separate the radius and isGlobal flag
+        int lastColon = soundInfo.lastIndexOf(':');
+        int secondLastColon = lastColon > 0 ? soundInfo.lastIndexOf(':', lastColon - 1) : -1;
+        
+        String soundName;
+        float radius = 10.0f;
+        boolean isGlobal = false;
+        
+        // If we have at least two colons, parse as expected format: soundName:radius:isGlobal
+        if (lastColon > 0 && secondLastColon > 0) {
+            // Extract soundName (preserving any colons in the name itself)
+            soundName = soundInfo.substring(0, secondLastColon);
+            
+            // Extract and parse radius
+            try {
+                radius = Float.parseFloat(soundInfo.substring(secondLastColon + 1, lastColon));
+            } catch (NumberFormatException e) {
+                // Use default radius if parsing fails
+            }
+            
+            // Extract and parse isGlobal flag
+            String globalFlag = soundInfo.substring(lastColon + 1);
+            isGlobal = "1".equals(globalFlag) || "true".equalsIgnoreCase(globalFlag);
+        } else {
+            // If we don't have the expected format, use the whole string as the sound name
+            soundName = soundInfo;
+        }
+        
+        return new Object[] {soundName, radius, isGlobal};
+    }
+
+    public void addSoundToFrame(Player player, int frameIndex, String soundName, float radius, boolean isGlobal) {
+        UUID playerUUID = player.getUniqueId();
+        String animName = playerCurrentAnimation.get(playerUUID);
+
+        if (animName == null) {
+            player.sendMessage("§cNo animation selected!");
+            return;
+        }
+
+        Animation animation = animations.get(animName);
+        if (animation == null) {
+            player.sendMessage("§cThe selected animation no longer exists!");
+            playerCurrentAnimation.remove(playerUUID);
+            return;
+        }
+
+        if (frameIndex < 0 || frameIndex >= animation.frames.size()) {
+            player.sendMessage("§cInvalid frame index! Must be between 0 and " + (animation.frames.size() - 1));
+            return;
+        }
+
+        String soundInfo = soundName + ":" + radius + ":" + (isGlobal ? "1" : "0");
+        animation.addSound(frameIndex, soundInfo);
+        
+        String radiusMsg = radius > 0 ? " with radius " + radius : " at player location";
+        String globalMsg = isGlobal ? " (global)" : "";
+        player.sendMessage("§aAdded sound '" + soundName + "'" + radiusMsg + globalMsg + " to frame " + frameIndex + " in animation '" + animName + "'");
+    }
+    
+    public List<Integer> getFrameNumbers(Player player) {
+        UUID playerUUID = player.getUniqueId();
+        String animName = playerCurrentAnimation.get(playerUUID);
+        
+        if (animName == null) {
+            return new ArrayList<>();
+        }
+        
+        Animation animation = animations.get(animName);
+        if (animation == null) {
+            return new ArrayList<>();
+        }
+        
+        List<Integer> frameNumbers = new ArrayList<>();
+        for (int i = 0; i < animation.frames.size(); i++) {
+            frameNumbers.add(i);
+        }
+        
+        return frameNumbers;
+    }
+    
+    public List<String> getSuggestableSounds() {
+        List<String> sounds = new ArrayList<>();
+        
+        try {
+            for (org.bukkit.Sound sound : org.bukkit.Sound.values()) {
+                String soundName = sound.getKey().toString();
+                sounds.add(soundName);
+            }
+            
+            Collections.sort(sounds);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to get all sound keys: " + e.getMessage());
+            sounds.add("minecraft:block.note_block.bass");
+            sounds.add("minecraft:block.note_block.bell");
+            sounds.add("minecraft:entity.player.levelup");
+            sounds.add("minecraft:ui.button.click");
+        }
+        
+        return sounds;
+    }
+
+    private Location calculateAnimationCenter(BlockFrame frame) {
+        if (frame == null || frame.getBlocks().isEmpty()) {
+            return null;
+        }
+        
+        Map<Location, BlockInfo> blockMap = frame.getBlocks();
+        List<Location> locations = new ArrayList<>(blockMap.keySet());
+        
+        double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, minZ = Double.MAX_VALUE;
+        double maxX = Double.MIN_VALUE, maxY = Double.MIN_VALUE, maxZ = Double.MIN_VALUE;
+        
+        for (Location loc : locations) {
+            minX = Math.min(minX, loc.getX());
+            minY = Math.min(minY, loc.getY());
+            minZ = Math.min(minZ, loc.getZ());
+            maxX = Math.max(maxX, loc.getX());
+            maxY = Math.max(maxY, loc.getY());
+            maxZ = Math.max(maxZ, loc.getZ());
+        }
+        
+        double centerX = minX + (maxX - minX) / 2;
+        double centerY = minY + (maxY - minY) / 2;
+        double centerZ = minZ + (maxZ - minZ) / 2;
+        
+        World world = locations.get(0).getWorld();
+        return new Location(world, centerX, centerY, centerZ);
     }
 }

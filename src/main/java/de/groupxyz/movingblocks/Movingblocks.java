@@ -27,21 +27,21 @@ public final class Movingblocks extends JavaPlugin implements Listener {
         animationManager = new AnimationManager(this);
         
         animationEventHandler = new AnimationEventHandler(this, animationManager);
-        
-        getCommand("movingblocks").setExecutor(new AnimationCommand(this, animationManager, animationEventHandler));
-        getServer().getPluginManager().registerEvents(new BlockSelectionListener(animationManager), this);
-        getServer().getPluginManager().registerEvents(animationEventHandler, this);
-        getServer().getPluginManager().registerEvents(this, this);
-        
-        metricsService = new MetricsService(this, animationManager, animationEventHandler);
-        
+
         updateChecker = new UpdateChecker(this);
-        
+
         if (updateChecker.isEnabled()) {
             int initialDelay = getConfig().getInt("update-checker.initial-delay", 6);
             int checkInterval = getConfig().getInt("update-checker.check-interval", 24);
             updateChecker.scheduleUpdateChecks(initialDelay, checkInterval);
         }
+        
+        getCommand("movingblocks").setExecutor(new AnimationCommand(this, animationManager, animationEventHandler, updateChecker));
+        getServer().getPluginManager().registerEvents(new BlockSelectionListener(animationManager), this);
+        getServer().getPluginManager().registerEvents(animationEventHandler, this);
+        getServer().getPluginManager().registerEvents(this, this);
+        
+        metricsService = new MetricsService(this, animationManager, animationEventHandler);
         
         getLogger().info("Movingblocks initialized successfully!");
     }
