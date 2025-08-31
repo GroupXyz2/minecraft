@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -19,7 +18,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.ChatColor;
 import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.hover.content.Text;
@@ -35,6 +33,8 @@ public class AnimationManager {
     private final Map<UUID, BukkitRunnable> runningAnimations;
     private final Map<String, UUID> globalAnimations;
     private final boolean useNbt;
+    private final boolean skipUnloadedChunks;
+    private AnimationSerializer serializer;
 
     private final Map<String, Animation> animations;
     private final Map<UUID, String> playerCurrentAnimation;
@@ -57,17 +57,23 @@ public class AnimationManager {
         if (configFile.exists()) {
             FileConfiguration config = YamlConfiguration.loadConfiguration(configFile);
             this.useNbt = config.getBoolean("useNbt", false);
+            this.skipUnloadedChunks = config.getBoolean("skipUnloadedChunks", true);
         } else {
             this.useNbt = false;
+            this.skipUnloadedChunks = true;
         }
+
+        this.serializer = new AnimationSerializer(plugin, useNbt);
 
         plugin.getLogger().info("NBT support is " + (useNbt ? "enabled" : "disabled") +
                 " for block animations");
+        plugin.getLogger().info("Skip unloaded chunks is " + (skipUnloadedChunks ? "enabled" : "disabled") +
+                " for performance optimization");
 
         loadAnimations();
     }
 
-    private static class Animation {
+    static class Animation {
         private String name;
         private List<BlockFrame> frames;
         private int speed;
@@ -76,6 +82,15 @@ public class AnimationManager {
         private boolean removeBlocksAfterFrame;
         private boolean isProtected;
         private Map<Integer, String> frameSounds;
+
+        public UUID getOwner() { return owner; }
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public int getSpeed() { return speed; }
+        public void setSpeed(int speed) { this.speed = speed; }
+        public boolean isRemoveBlocksAfterFrame() { return removeBlocksAfterFrame; }
+        public void setRemoveBlocksAfterFrame(boolean remove) { this.removeBlocksAfterFrame = remove; }
+        public List<BlockFrame> getFrames() { return frames; }
 
         public Animation(String name, UUID owner) {
             this.name = name;
@@ -113,7 +128,7 @@ public class AnimationManager {
         }
     }
     
-    private static class BlockFrame {
+    static class BlockFrame {
         private final Map<Location, BlockInfo> blocks;
         
         public BlockFrame() {
@@ -129,7 +144,7 @@ public class AnimationManager {
         }
     }
     
-    private static class BlockInfo {
+    static class BlockInfo {
         private final Material material;
         private final BlockData blockData;
         private final BlockState blockState;
@@ -716,24 +731,36 @@ public class AnimationManager {
 
         if (removeAfter) {
             for (Location loc : frame.getBlocks().keySet()) {
+                if (skipUnloadedChunks && !loc.getWorld().isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) {
+                    continue;
+                }
                 originalBlocks.put(loc.clone(), new BlockInfo(loc.getBlock()));
             }
         }
 
         for (Map.Entry<Location, BlockInfo> entry : frame.getBlocks().entrySet()) {
-            Block targetBlock = entry.getKey().getBlock();
+            Location loc = entry.getKey();
+            if (skipUnloadedChunks && !loc.getWorld().isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) {
+                continue;
+            }
+
+            Block targetBlock = loc.getBlock();
             entry.getValue().applyTo(targetBlock);
         }
 
-        if (removeAfter) {
-            Animation animation = animations.get(player != null ? 
+        if (removeAfter && !originalBlocks.isEmpty()) {
+            Animation animation = animations.get(player != null ?
                     playerCurrentAnimation.get(player.getUniqueId()) : null);
-            
+
             new BukkitRunnable() {
                 @Override
                 public void run() {
                     for (Map.Entry<Location, BlockInfo> entry : originalBlocks.entrySet()) {
-                        Block targetBlock = entry.getKey().getBlock();
+                        Location loc = entry.getKey();
+                        if (skipUnloadedChunks && !loc.getWorld().isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) {
+                            continue;
+                        }
+                        Block targetBlock = loc.getBlock();
                         entry.getValue().applyTo(targetBlock);
                     }
                 }
@@ -819,6 +846,15 @@ public class AnimationManager {
             }
         }
 
+        File animationsDir = new File(plugin.getDataFolder(), "animations");
+        File oldFile = new File(animationsDir, oldName + ".yml");
+
+        serializer.saveAnimation(newName, anim);
+
+        if (oldFile.exists() && !oldFile.delete()) {
+            plugin.getLogger().warning("Failed to delete old animation file: " + oldFile.getName());
+        }
+
         player.sendMessage("§aAnimation renamed from '" + oldName + "' to '" + newName + "'");
     }
 
@@ -890,6 +926,12 @@ public class AnimationManager {
             }
         }
 
+        File animationsDir = new File(plugin.getDataFolder(), "animations");
+        File animFile = new File(animationsDir, name + ".yml");
+        if (animFile.exists() && !animFile.delete()) {
+            plugin.getLogger().warning("Failed to delete animation file: " + animFile.getName());
+        }
+
         animations.remove(name);
         player.sendMessage("§aDeleted animation '" + name + "'");
     }
@@ -910,203 +952,261 @@ public class AnimationManager {
             player.sendMessage("§e" + entry.getKey() + " §7- " + status + " §7- " +
                     ownership + " §7- " + mode + " §7- §e" + anim.frames.size() + " frames");
         }
-    }    public void saveAllAnimations() {
-        File file = new File(plugin.getDataFolder(), "animations.yml");
-        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+    }
 
-        for (String key : config.getKeys(false)) {
-            config.set(key, null);
-        }
+    public void saveAllAnimations() {
+        File globalFile = new File(plugin.getDataFolder(), "global.yml");
+        FileConfiguration globalConfig = YamlConfiguration.loadConfiguration(globalFile);
 
         List<String> runningAnimationNames = new ArrayList<>();
         for (String animName : globalAnimations.keySet()) {
             runningAnimationNames.add(animName);
         }
-        config.set("runningAnimations", runningAnimationNames);
-        
-        config.set("useNbt", useNbt);
-
-        config.set("protectedAnimations", new ArrayList<>(protectedAnimations));
-
-        for (Map.Entry<String, Animation> entry : animations.entrySet()) {
-            String name = entry.getKey();
-            Animation anim = entry.getValue();
-
-            config.set(name + ".owner", anim.owner.toString());
-            config.set(name + ".enabled", anim.enabled);
-            config.set(name + ".speed", anim.speed);
-            config.set(name + ".removeBlocksAfterFrame", anim.removeBlocksAfterFrame);
-            config.set(name + ".isProtected", anim.isProtected());
-
-            if (!anim.frameSounds.isEmpty()) {
-                for (Map.Entry<Integer, String> soundEntry : anim.frameSounds.entrySet()) {
-                    int frameIndex = soundEntry.getKey();
-                    String soundName = soundEntry.getValue();
-                    config.set(name + ".sounds." + frameIndex, soundName);
-                }
-            }
-
-            int frameIndex = 0;
-            for (BlockFrame frame : anim.frames) {
-                int blockIndex = 0;
-                for (Map.Entry<Location, BlockInfo> blockEntry : frame.getBlocks().entrySet()) {
-                    Location loc = blockEntry.getKey();
-                    BlockInfo blockInfo = blockEntry.getValue();
-
-                    String path = name + ".frames." + frameIndex + "." + blockIndex;
-                    config.set(path + ".world", loc.getWorld().getName());
-                    config.set(path + ".x", loc.getX());
-                    config.set(path + ".y", loc.getY());
-                    config.set(path + ".z", loc.getZ());
-                    config.set(path + ".material", blockInfo.getMaterial().name());
-                    
-                    config.set(path + ".blockData", blockInfo.getBlockData().getAsString());
-
-                    blockIndex++;
-                }
-                frameIndex++;
-            }
-        }
+        globalConfig.set("runningAnimations", runningAnimationNames);
+        globalConfig.set("useNbt", useNbt);
+        globalConfig.set("protectedAnimations", new ArrayList<>(protectedAnimations));
 
         try {
-            config.save(file);
-            plugin.getLogger().info("Saved " + animations.size() + " animations to disk.");
+            globalConfig.save(globalFile);
         } catch (IOException e) {
-            plugin.getLogger().severe("Failed to save animations: " + e.getMessage());
+            plugin.getLogger().severe("Failed to save global config: " + e.getMessage());
         }
+
+        for (Map.Entry<String, Animation> entry : animations.entrySet()) {
+            serializer.saveAnimation(entry.getKey(), entry.getValue());
+        }
+
+        plugin.getLogger().info("Saved " + animations.size() + " animations to individual files.");
     }
 
     private void loadAnimations() {
-        File file = new File(plugin.getDataFolder(), "animations.yml");
-        if (!file.exists()) {
-            plugin.getLogger().info("No animations file found, creating new one.");
+        migrateFromOldFormat();
+        loadIndividualAnimations();
+        loadGlobalConfig();
+    }
+
+    private void migrateFromOldFormat() {
+        File oldFile = new File(plugin.getDataFolder(), "animations.yml");
+        if (!oldFile.exists()) {
             return;
         }
 
-        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        plugin.getLogger().info("Migrating animations from old format...");
 
-        boolean configUseNbt = config.getBoolean("useNbt", true);
-        if (configUseNbt != useNbt) {
-            plugin.getLogger().info("NBT setting changed from " + configUseNbt + 
-                    " to " + useNbt);
+        FileConfiguration oldConfig = YamlConfiguration.loadConfiguration(oldFile);
+        int migratedCount = 0;
+
+        for (String animName : oldConfig.getKeys(false)) {
+            if (animName.equals("runningAnimations") ||
+                    animName.equals("useNbt") ||
+                    animName.equals("protectedAnimations")) {
+                continue;
+            }
+
+            try {
+                Animation animation = loadAnimationFromOldFormat(oldConfig, animName);
+                if (animation != null) {
+                    animations.put(animName, animation);
+                    serializer.saveAnimation(animName, animation);
+                    migratedCount++;
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to migrate animation '" + animName + "': " + e.getMessage());
+            }
         }
 
-        List<String> protectedAnimList = config.getStringList("protectedAnimations");
+        File globalFile = new File(plugin.getDataFolder(), "global.yml");
+        FileConfiguration globalConfig = new YamlConfiguration();
+
+        globalConfig.set("runningAnimations", oldConfig.getStringList("runningAnimations"));
+        globalConfig.set("useNbt", oldConfig.getBoolean("useNbt", useNbt));
+        globalConfig.set("protectedAnimations", oldConfig.getStringList("protectedAnimations"));
+
+        try {
+            globalConfig.save(globalFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to save migrated global config: " + e.getMessage());
+        }
+
+        File backupFile = new File(plugin.getDataFolder(), "animations_backup_" + System.currentTimeMillis() + ".yml");
+        if (oldFile.renameTo(backupFile)) {
+            plugin.getLogger().info("Successfully migrated " + migratedCount + " animations. Old file backed up to: " + backupFile.getName());
+        } else {
+            plugin.getLogger().warning("Migration completed but failed to backup old file.");
+        }
+    }
+
+    private void loadGlobalConfig() {
+        File globalFile = new File(plugin.getDataFolder(), "global.yml");
+        if (!globalFile.exists()) {
+            return;
+        }
+
+        FileConfiguration globalConfig = YamlConfiguration.loadConfiguration(globalFile);
+
+        List<String> protectedAnimList = globalConfig.getStringList("protectedAnimations");
         protectedAnimations.addAll(protectedAnimList);
 
-        for (String animName : config.getKeys(false)) {
-            if (animName.equals("runningAnimations") || 
-                animName.equals("useNbt") || 
-                animName.equals("protectedAnimations")) continue;
+        List<String> runningAnimationNames = globalConfig.getStringList("runningAnimations");
 
-            try {                UUID owner = UUID.fromString(config.getString(animName + ".owner", ""));
-                boolean enabled = config.getBoolean(animName + ".enabled", true);
-                int speed = config.getInt(animName + ".speed", 20);
-                boolean removeBlocksAfterFrame = config.getBoolean(animName + ".removeBlocksAfterFrame", false);
-                boolean isProtected = config.getBoolean(animName + ".isProtected", false);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            int startedCount = 0;
+            for (String animName : runningAnimationNames) {
+                if (animations.containsKey(animName)) {
+                    Animation animation = animations.get(animName);
+                    if (animation != null && animation.enabled && !animation.frames.isEmpty()) {
+                        startGlobalAnimation(animName, null);
+                        startedCount++;
+                    }
+                } else {
+                    plugin.getLogger().warning("Could not restart animation '" + animName + "' - animation not found");
+                }
+            }
 
-                Animation animation = new Animation(animName, owner);
-                animation.enabled = enabled;
-                animation.speed = speed;
-                animation.removeBlocksAfterFrame = removeBlocksAfterFrame;
-                animation.setProtected(isProtected);
-                
-                // Lade Sound-Informationen
-                ConfigurationSection soundsSection = config.getConfigurationSection(animName + ".sounds");
-                if (soundsSection != null) {
-                    for (String frameIndexStr : soundsSection.getKeys(false)) {
-                        try {
-                            int frameIndex = Integer.parseInt(frameIndexStr);
-                            String soundName = config.getString(animName + ".sounds." + frameIndexStr);
-                            if (soundName != null && !soundName.isEmpty()) {
-                                animation.addSound(frameIndex, soundName);
-                            }
-                        } catch (NumberFormatException e) {
-                            plugin.getLogger().warning("Invalid frame index in sound information: " + frameIndexStr);
+            if (startedCount > 0) {
+                plugin.getLogger().info("Restarted " + startedCount + " global animations");
+            }
+        }, 20L);
+    }
+
+    private void loadIndividualAnimations() {
+        File animationsDir = new File(plugin.getDataFolder(), "animations");
+        if (!animationsDir.exists()) {
+            plugin.getLogger().info("No animations directory found, creating new one.");
+            return;
+        }
+
+        File[] animationFiles = animationsDir.listFiles((dir, name) -> name.endsWith(".yml"));
+        if (animationFiles == null) {
+            return;
+        }
+
+        int loadedCount = 0;
+        for (File animFile : animationFiles) {
+            String animName = animFile.getName().replace(".yml", "");
+
+            Animation animation = serializer.loadAnimation(animName);
+            if (animation != null) {
+                animations.put(animName, animation);
+
+                if (animation.isProtected()) {
+                    for (BlockFrame frame : animation.getFrames()) {
+                        for (Location loc : frame.getBlocks().keySet()) {
+                            protectedBlocks.put(loc.clone(), animName);
                         }
                     }
                 }
 
-                ConfigurationSection framesSection = config.getConfigurationSection(animName + ".frames");
-                if (framesSection != null) {
-                    for (String frameIndexStr : framesSection.getKeys(false)) {
-                        BlockFrame frame = new BlockFrame();
+                loadedCount++;
+            }
+        }
+
+        plugin.getLogger().info("Loaded " + loadedCount + " animations from individual files.");
+    }
+
+    private Animation loadAnimationFromOldFormat(FileConfiguration oldConfig, String animName) {
+        try {
+            UUID owner = UUID.fromString(oldConfig.getString(animName + ".owner", ""));
+            boolean enabled = oldConfig.getBoolean(animName + ".enabled", true);
+            int speed = oldConfig.getInt(animName + ".speed", 20);
+            boolean removeBlocksAfterFrame = oldConfig.getBoolean(animName + ".removeBlocksAfterFrame", false);
+            boolean isProtected = oldConfig.getBoolean(animName + ".isProtected", false);
+
+            Animation animation = new Animation(animName, owner);
+            animation.enabled = enabled;
+            animation.speed = speed;
+            animation.removeBlocksAfterFrame = removeBlocksAfterFrame;
+            animation.setProtected(isProtected);
+
+            ConfigurationSection soundsSection = oldConfig.getConfigurationSection(animName + ".sounds");
+            if (soundsSection != null) {
+                for (String frameIndexStr : soundsSection.getKeys(false)) {
+                    try {
+                        int frameIndex = Integer.parseInt(frameIndexStr);
+                        String soundInfo = soundsSection.getString(frameIndexStr);
+                        animation.addSound(frameIndex, soundInfo);
+                    } catch (NumberFormatException e) {
+                        plugin.getLogger().warning("Invalid frame index in sound section for animation '" + animName + "': " + frameIndexStr);
+                    }
+                }
+            }
+
+            ConfigurationSection framesSection = oldConfig.getConfigurationSection(animName + ".frames");
+            if (framesSection != null) {
+                Map<Integer, BlockFrame> frameMap = new HashMap<>();
+
+                for (String frameIndexStr : framesSection.getKeys(false)) {
+                    try {
+                        int frameIndex = Integer.parseInt(frameIndexStr);
+                        BlockFrame frame = frameMap.computeIfAbsent(frameIndex, k -> new BlockFrame());
 
                         ConfigurationSection blockSection = framesSection.getConfigurationSection(frameIndexStr);
                         if (blockSection != null) {
                             for (String blockIndexStr : blockSection.getKeys(false)) {
-                                String path = frameIndexStr + "." + blockIndexStr;
-
-                                String worldName = config.getString(animName + ".frames." + path + ".world");
-                                World world = Bukkit.getWorld(worldName);
-                                if (world == null) continue;
-
-                                double x = config.getDouble(animName + ".frames." + path + ".x");
-                                double y = config.getDouble(animName + ".frames." + path + ".y");
-                                double z = config.getDouble(animName + ".frames." + path + ".z");
-                                Location loc = new Location(world, x, y, z);
-
-                                String matName = config.getString(animName + ".frames." + path + ".material");
-                                Material mat = Material.getMaterial(matName);
-                                if (mat == null) continue;
-
-                                BlockInfo blockInfo;
                                 try {
-                                    Block tempBlock = loc.getBlock();
-                                    Material originalType = tempBlock.getType();
+                                    String worldName = blockSection.getString(blockIndexStr + ".world");
+                                    double x = blockSection.getDouble(blockIndexStr + ".x");
+                                    double y = blockSection.getDouble(blockIndexStr + ".y");
+                                    double z = blockSection.getDouble(blockIndexStr + ".z");
+                                    String materialName = blockSection.getString(blockIndexStr + ".material");
+                                    String blockDataStr = blockSection.getString(blockIndexStr + ".blockData");
 
-                                    tempBlock.setType(mat);
-
-                                    String blockDataStr = config.getString(animName + ".frames." + path + ".blockData");
-                                    if (blockDataStr != null) {
-                                        BlockData blockData = Bukkit.createBlockData(blockDataStr);
-                                        tempBlock.setBlockData(blockData);
+                                    World world = Bukkit.getWorld(worldName);
+                                    if (world == null) {
+                                        plugin.getLogger().warning("World '" + worldName + "' not found for animation '" + animName + "'");
+                                        continue;
                                     }
 
-                                    blockInfo = new BlockInfo(tempBlock);
+                                    Material material = Material.valueOf(materialName);
+                                    Location location = new Location(world, x, y, z);
+                                    BlockInfo blockInfo = createBlockInfo(location, material, blockDataStr);
 
-                                    tempBlock.setType(originalType);
+                                    frame.getBlocks().put(location.clone(), blockInfo);
                                 } catch (Exception e) {
-                                    plugin.getLogger().warning("Failed to load block data for animation " + 
-                                            animName + ": " + e.getMessage());
-
-                                    loc.getBlock().setType(mat);
-                                    blockInfo = new BlockInfo(loc.getBlock());
-                                }
-                                
-                                frame.getBlocks().put(loc, blockInfo);
-
-                                if (animation.isProtected()) {
-                                    protectedBlocks.put(loc.clone(), animName);
+                                    plugin.getLogger().warning("Failed to load block at index '" + blockIndexStr + "' for animation '" + animName + "': " + e.getMessage());
                                 }
                             }
                         }
-
-                        if (!frame.getBlocks().isEmpty()) {
-                            animation.frames.add(frame);
-                        }
+                    } catch (NumberFormatException e) {
+                        plugin.getLogger().warning("Invalid frame index for animation '" + animName + "': " + frameIndexStr);
                     }
                 }
 
-                animations.put(animName, animation);
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to load animation '" + animName + "': " + e.getMessage());
+                for (int i = 0; i < frameMap.size(); i++) {
+                    if (frameMap.containsKey(i)) {
+                        animation.frames.add(frameMap.get(i));
+                    }
+                }
             }
-        }
 
-        List<String> runningAnimationNames = config.getStringList("runningAnimations");
-        Set<String> alreadyStarted = new HashSet<>();
-        
-        for (String animName : runningAnimationNames) {
-            if (!alreadyStarted.contains(animName) && animations.containsKey(animName)) {
-                startGlobalAnimation(animName, null);
-                alreadyStarted.add(animName);
-                //plugin.getLogger().info("Restored global animation: " + animName);
+            return animation;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to load animation '" + animName + "' from old format: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private BlockInfo createBlockInfo(Location loc, Material mat, String blockDataStr) {
+        try {
+            Block tempBlock = loc.getBlock();
+            Material originalType = tempBlock.getType();
+
+            tempBlock.setType(mat);
+
+            if (blockDataStr != null && !blockDataStr.isEmpty()) {
+                BlockData blockData = Bukkit.createBlockData(blockDataStr);
+                tempBlock.setBlockData(blockData);
             }
-        }
 
-        plugin.getLogger().info("Loaded " + animations.size() + " animations.");
-        plugin.getLogger().info("Protected animations: " + protectedAnimations.size());
+            BlockInfo blockInfo = new BlockInfo(tempBlock);
+            tempBlock.setType(originalType);
+
+            return blockInfo;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to create block info: " + e.getMessage());
+            loc.getBlock().setType(mat);
+            return new BlockInfo(loc.getBlock());
+        }
     }
 
     public void toggleProtection(Player player, String name, boolean protect) {
@@ -1125,7 +1225,7 @@ public class AnimationManager {
         if (animation.isProtected()) {
             for (BlockFrame frame : animation.frames) {
                 for (Location loc : frame.getBlocks().keySet()) {
-                    if (protectedBlocks.containsKey(loc) && 
+                    if (protectedBlocks.containsKey(loc) &&
                             protectedBlocks.get(loc).equals(name)) {
                         protectedBlocks.remove(loc);
                     }
@@ -1143,10 +1243,10 @@ public class AnimationManager {
                     protectedBlocks.put(loc.clone(), name);
                 }
             }
-            player.sendMessage("§aProtection §aenabled §afor animation '" + name + 
+            player.sendMessage("§aProtection §aenabled §afor animation '" + name +
                     "'. All its blocks are now protected.");
         } else {
-            player.sendMessage("§cProtection §cdisabled §cfor animation '" + name + 
+            player.sendMessage("§cProtection §cdisabled §cfor animation '" + name +
                     "'. Blocks are no longer protected.");
         }
     }
@@ -1160,9 +1260,9 @@ public class AnimationManager {
             player.sendMessage("§cAnimation '" + name + "' doesn't exist!");
             return;
         }
-        
+
         Animation animation = animations.get(name);
-        
+
         player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
         player.sendMessage("§6§l  Animation Information: §e" + name);
         player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
@@ -1170,14 +1270,14 @@ public class AnimationManager {
         player.sendMessage("§6› §eOwner: §f" + Bukkit.getOfflinePlayer(animation.owner).getName());
         player.sendMessage("§6› §eStatus: " + (animation.enabled ? "§aEnabled" : "§cDisabled"));
         player.sendMessage("§6› §eProtection: " + (animation.isProtected() ? "§aEnabled" : "§cDisabled"));
-        player.sendMessage("§6› §eSpeed: §f" + animation.speed + " ticks (" + 
+        player.sendMessage("§6› §eSpeed: §f" + animation.speed + " ticks (" +
                 String.format("%.1f", animation.speed / 20.0) + " seconds)");
-        player.sendMessage("§6› §eMode: §f" + 
+        player.sendMessage("§6› §eMode: §f" +
                 (animation.removeBlocksAfterFrame ? "Place and Remove" : "Replace"));
 
         int totalFrames = animation.frames.size();
         player.sendMessage("§6› §eFrames: §f" + totalFrames);
-        
+
         if (totalFrames > 0) {
             StringBuilder frameInfo = new StringBuilder("§6› §eBlocks per frame: §f");
             for (int i = 0; i < totalFrames; i++) {
@@ -1193,7 +1293,7 @@ public class AnimationManager {
 
             double avgBlocks = 0;
             Map<Material, Integer> blockTypes = new HashMap<>();
-            
+
             for (BlockFrame frame : animation.frames) {
                 avgBlocks += frame.getBlocks().size();
 
@@ -1202,100 +1302,100 @@ public class AnimationManager {
                     blockTypes.put(type, blockTypes.getOrDefault(type, 0) + 1);
                 }
             }
-            
+
             avgBlocks /= totalFrames;
             player.sendMessage("§6› §eAverage blocks per frame: §f" + String.format("%.1f", avgBlocks));
 
             List<Map.Entry<Material, Integer>> sortedBlocks = new ArrayList<>(blockTypes.entrySet());
             sortedBlocks.sort((a, b) -> b.getValue().compareTo(a.getValue()));
-            
+
             player.sendMessage("§6› §eTop block types:");
             int limit = Math.min(5, sortedBlocks.size());
             for (int i = 0; i < limit; i++) {
                 Map.Entry<Material, Integer> entry = sortedBlocks.get(i);
-                player.sendMessage("§6  §7- §f" + formatMaterialName(entry.getKey()) + 
+                player.sendMessage("§6  §7- §f" + formatMaterialName(entry.getKey()) +
                         " §7(" + entry.getValue() + ")");
             }
 
             double totalTime = (totalFrames * animation.speed) / 20.0;
-            player.sendMessage("§6› §eAnimation duration: §f" + 
+            player.sendMessage("§6› §eAnimation duration: §f" +
                     String.format("%.1f", totalTime) + " seconds");
         }
 
         boolean isRunningGlobally = isAnimationRunningGlobally(name);
-        player.sendMessage("§6› §eRunning status: " + 
+        player.sendMessage("§6› §eRunning status: " +
                 (isRunningGlobally ? "§aRunning globally" : "§cNot running globally"));
 
         player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
 
         String cmdPrefix = "/mb";
         player.sendMessage("§7Click on an action to perform it:");
-        
+
         TextComponent container = new TextComponent("§8[ ");
-        
+
         TextComponent actionButton;
         if (isRunningGlobally) {
             actionButton = new TextComponent("§c§l[Stop]");
             actionButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmdPrefix + " stop " + name));
-            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                 new Text("§eClick to stop the animation")));
         } else {
             actionButton = new TextComponent("§a§l[Play]");
             actionButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmdPrefix + " play " + name + " global"));
-            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                 new Text("§eClick to stop the animation globally")));
         }
         container.addExtra(actionButton);
-        
+
         TextComponent separator = new TextComponent(" §8| ");
         container.addExtra(separator);
-        
+
         if (animation.enabled) {
             actionButton = new TextComponent("§c§l[Disable]");
             actionButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmdPrefix + " disable " + name));
-            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                 new Text("§eClick to deactivate the animation")));
         } else {
             actionButton = new TextComponent("§a§l[Enable]");
             actionButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmdPrefix + " enable " + name));
-            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                 new Text("§eClick to enable the animation")));
         }
         container.addExtra(actionButton);
-        
+
         container.addExtra(new TextComponent(" §8| "));
-        
+
         if (animation.isProtected()) {
             actionButton = new TextComponent("§c§l[Unprotect]");
             actionButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmdPrefix + " protect " + name + " off"));
-            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                 new Text("§eClick to unprotect the animation")));
         } else {
             actionButton = new TextComponent("§a§l[Protect]");
             actionButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmdPrefix + " protect " + name + " on"));
-            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+            actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                 new Text("§eClick to protect the animation")));
         }
         container.addExtra(actionButton);
-        
+
         container.addExtra(new TextComponent(" §8| "));
-        
+
         actionButton = new TextComponent("§e§l[Paste]");
         actionButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmdPrefix + " paste " + name));
-        actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+        actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
             new Text("§eClick to copy the animation")));
         container.addExtra(actionButton);
-        
+
         container.addExtra(new TextComponent(" §8| "));
-        
+
         actionButton = new TextComponent("§b§l[Select]");
         actionButton.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmdPrefix + " select " + name));
-        actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, 
+        actionButton.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
             new Text("§eClick to select the animation")));
         container.addExtra(actionButton);
-        
+
         container.addExtra(new TextComponent(" §8]"));
-        
+
         player.spigot().sendMessage(container);
     }
 
@@ -1303,7 +1403,7 @@ public class AnimationManager {
         String name = material.name().toLowerCase();
         String[] parts = name.split("_");
         StringBuilder result = new StringBuilder();
-        
+
         for (String part : parts) {
             if (part.length() > 0) {
                 result.append(Character.toUpperCase(part.charAt(0)))
@@ -1311,10 +1411,10 @@ public class AnimationManager {
                       .append(" ");
             }
         }
-        
+
         return result.toString().trim();
     }
-    
+
     public List<String> getAnimationNames() {
         return new ArrayList<>(animations.keySet());
     }
@@ -1345,9 +1445,9 @@ public class AnimationManager {
             player.sendMessage("§cAnimation '" + animName + "' doesn't exist!");
             return;
         }
-        
+
         Animation animation = animations.get(animName);
-        
+
         if (animation.frames.isEmpty()) {
             player.sendMessage("§cAnimation '" + animName + "' has no frames to paste!");
             return;
@@ -1376,7 +1476,7 @@ public class AnimationManager {
                 if (loc.getZ() < minLoc.getZ()) minLoc.setZ(loc.getZ());
             }
         }
-        
+
         if (minLoc == null) {
             player.sendMessage("§cCould not determine reference point for animation!");
             return;
@@ -1393,7 +1493,7 @@ public class AnimationManager {
 
         for (BlockFrame sourceFrame : animation.frames) {
             BlockFrame newFrame = new BlockFrame();
-            
+
             for (Map.Entry<Location, BlockInfo> entry : sourceFrame.getBlocks().entrySet()) {
                 Location oldLoc = entry.getKey();
                 BlockInfo blockInfo = entry.getValue();
@@ -1407,15 +1507,15 @@ public class AnimationManager {
 
                 newFrame.getBlocks().put(newLoc, new BlockInfo(blockInfo));
             }
-            
+
             newAnimation.frames.add(newFrame);
         }
 
         animations.put(newName, newAnimation);
 
         playerCurrentAnimation.put(player.getUniqueId(), newName);
-        
-        player.sendMessage("§aAnimation '" + animName + "' pasted at your location as '" + 
+
+        player.sendMessage("§aAnimation '" + animName + "' pasted at your location as '" +
                 newName + "' with " + newAnimation.frames.size() + " frames.");
         player.sendMessage("§aThe new animation has been selected as your current animation.");
     }
@@ -1425,9 +1525,9 @@ public class AnimationManager {
             player.sendMessage("§cAnimation '" + animName + "' doesn't exist!");
             return;
         }
-        
+
         Animation animation = animations.get(animName);
-        
+
         if (animation.frames.isEmpty()) {
             player.sendMessage("§cAnimation '" + animName + "' has no frames to paste!");
             return;
@@ -1456,7 +1556,7 @@ public class AnimationManager {
                 if (loc.getZ() < minLoc.getZ()) minLoc.setZ(loc.getZ());
             }
         }
-        
+
         if (minLoc == null) {
             player.sendMessage("§cCould not determine reference point for animation!");
             return;
@@ -1465,7 +1565,7 @@ public class AnimationManager {
         double offsetX = targetLoc.getX() - minLoc.getX();
         double offsetY = targetLoc.getY() - minLoc.getY();
         double offsetZ = targetLoc.getZ() - minLoc.getZ();
-        
+
         int blocksPlaced = 0;
 
         for (Map.Entry<Location, BlockInfo> entry : firstFrame.getBlocks().entrySet()) {
@@ -1484,14 +1584,14 @@ public class AnimationManager {
                 blockInfo.applyTo(targetBlock);
                 blocksPlaced++;
             } catch (Exception e) {
-                player.sendMessage("§cError placing block at " + 
-                        newLoc.getBlockX() + "," + newLoc.getBlockY() + "," + newLoc.getBlockZ() + 
+                player.sendMessage("§cError placing block at " +
+                        newLoc.getBlockX() + "," + newLoc.getBlockY() + "," + newLoc.getBlockZ() +
                         ": " + e.getMessage());
             }
         }
-        
+
         if (onlyFirstFrame) {
-            player.sendMessage("§aPasted " + blocksPlaced + " blocks from the first frame of animation '" + 
+            player.sendMessage("§aPasted " + blocksPlaced + " blocks from the first frame of animation '" +
                     animName + "' at your location.");
         } else {
             String newName = animName + "_pasted_" + System.currentTimeMillis() % 1000;
@@ -1501,7 +1601,7 @@ public class AnimationManager {
 
             for (BlockFrame sourceFrame : animation.frames) {
                 BlockFrame newFrame = new BlockFrame();
-                
+
                 for (Map.Entry<Location, BlockInfo> entry : sourceFrame.getBlocks().entrySet()) {
                     Location oldLoc = entry.getKey();
                     BlockInfo blockInfo = entry.getValue();
@@ -1515,15 +1615,15 @@ public class AnimationManager {
 
                     newFrame.getBlocks().put(newLoc, new BlockInfo(blockInfo));
                 }
-                
+
                 newAnimation.frames.add(newFrame);
             }
 
             animations.put(newName, newAnimation);
 
             playerCurrentAnimation.put(player.getUniqueId(), newName);
-            
-            player.sendMessage("§aAnimation '" + animName + "' pasted at your location as '" + 
+
+            player.sendMessage("§aAnimation '" + animName + "' pasted at your location as '" +
                     newName + "' with " + newAnimation.frames.size() + " frames and first frame placed in world.");
             player.sendMessage("§aThe new animation has been selected as your current animation.");
         }
@@ -1537,7 +1637,7 @@ public class AnimationManager {
     public Plugin getPlugin() {
         return plugin;
     }
-    
+
     public void playAnimationOnce(String name) {
         if (!animations.containsKey(name)) {
             plugin.getLogger().warning("Animation '" + name + "' does not exist! Cannot play it.");
@@ -1575,11 +1675,11 @@ public class AnimationManager {
         runningAnimations.put(animationId, task);
         plugin.getLogger().info("Animation '" + name + "' started for a one-time run.");
     }
-    
+
     public boolean isAnimationExists(String name) {
         return animations.containsKey(name);
     }
-    
+
     public int getAnimationFrameCount(String animationName) {
         Animation animation = animations.get(animationName);
         if (animation == null) {
@@ -1587,20 +1687,20 @@ public class AnimationManager {
         }
         return animation.frames.size();
     }
-    
+
     public int getAnimationTotalBlocks(String animationName) {
         Animation animation = animations.get(animationName);
         if (animation == null) {
             return 0;
         }
-        
+
         int blockCount = 0;
         for (BlockFrame frame : animation.frames) {
             blockCount += frame.getBlocks().size();
         }
         return blockCount;
     }
-    
+
     public boolean isAnimationRemoveBlocksAfterFrame(String animationName) {
         Animation animation = animations.get(animationName);
         if (animation == null) {
@@ -1608,7 +1708,7 @@ public class AnimationManager {
         }
         return animation.removeBlocksAfterFrame;
     }
-    
+
     public void addSoundToFrame(Player player, int frameIndex, String soundName) {
         addSoundToFrame(player, frameIndex, soundName, 10.0f, false);
     }
@@ -1663,14 +1763,14 @@ public class AnimationManager {
         Map<Integer, String> sounds = animation.getAllSounds();        if (sounds.isEmpty()) {
             player.sendMessage("§eNo sounds have been added to animation '" + animName + "'");
             return;
-        }        
+        }
         player.sendMessage("§6§l==== Sounds for Animation '" + animName + "' ====");
         for (Map.Entry<Integer, String> entry : sounds.entrySet()) {
             Object[] soundInfo = parseSoundInfo(entry.getValue());
             String soundName = (String) soundInfo[0];
             float radius = (float) soundInfo[1];
             boolean isGlobal = (boolean) soundInfo[2];
-            
+
             String displayText = "§eFrame " + entry.getKey() + ": §f" + soundName;
             if (isGlobal) {
                 displayText += " §7(Global)";
@@ -1682,27 +1782,27 @@ public class AnimationManager {
     }
        private Object[] parseSoundInfo(String soundInfo) {
         if (soundInfo == null) return new Object[] {"", 0f, false};
-        
+
         // Find the last two colons which separate the radius and isGlobal flag
         int lastColon = soundInfo.lastIndexOf(':');
         int secondLastColon = lastColon > 0 ? soundInfo.lastIndexOf(':', lastColon - 1) : -1;
-        
+
         String soundName;
         float radius = 10.0f;
         boolean isGlobal = false;
-        
+
         // If we have at least two colons, parse as expected format: soundName:radius:isGlobal
         if (lastColon > 0 && secondLastColon > 0) {
             // Extract soundName (preserving any colons in the name itself)
             soundName = soundInfo.substring(0, secondLastColon);
-            
+
             // Extract and parse radius
             try {
                 radius = Float.parseFloat(soundInfo.substring(secondLastColon + 1, lastColon));
             } catch (NumberFormatException e) {
                 // Use default radius if parsing fails
             }
-            
+
             // Extract and parse isGlobal flag
             String globalFlag = soundInfo.substring(lastColon + 1);
             isGlobal = "1".equals(globalFlag) || "true".equalsIgnoreCase(globalFlag);
@@ -1710,7 +1810,7 @@ public class AnimationManager {
             // If we don't have the expected format, use the whole string as the sound name
             soundName = soundInfo;
         }
-        
+
         return new Object[] {soundName, radius, isGlobal};
     }
 
@@ -1737,42 +1837,42 @@ public class AnimationManager {
 
         String soundInfo = soundName + ":" + radius + ":" + (isGlobal ? "1" : "0");
         animation.addSound(frameIndex, soundInfo);
-        
+
         String radiusMsg = radius > 0 ? " with radius " + radius : " at player location";
         String globalMsg = isGlobal ? " (global)" : "";
         player.sendMessage("§aAdded sound '" + soundName + "'" + radiusMsg + globalMsg + " to frame " + frameIndex + " in animation '" + animName + "'");
     }
-    
+
     public List<Integer> getFrameNumbers(Player player) {
         UUID playerUUID = player.getUniqueId();
         String animName = playerCurrentAnimation.get(playerUUID);
-        
+
         if (animName == null) {
             return new ArrayList<>();
         }
-        
+
         Animation animation = animations.get(animName);
         if (animation == null) {
             return new ArrayList<>();
         }
-        
+
         List<Integer> frameNumbers = new ArrayList<>();
         for (int i = 0; i < animation.frames.size(); i++) {
             frameNumbers.add(i);
         }
-        
+
         return frameNumbers;
     }
-    
+
     public List<String> getSuggestableSounds() {
         List<String> sounds = new ArrayList<>();
-        
+
         try {
             for (org.bukkit.Sound sound : org.bukkit.Sound.values()) {
                 String soundName = sound.getKey().toString();
                 sounds.add(soundName);
             }
-            
+
             Collections.sort(sounds);
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to get all sound keys: " + e.getMessage());
@@ -1781,7 +1881,7 @@ public class AnimationManager {
             sounds.add("minecraft:entity.player.levelup");
             sounds.add("minecraft:ui.button.click");
         }
-        
+
         return sounds;
     }
 
@@ -1789,13 +1889,13 @@ public class AnimationManager {
         if (frame == null || frame.getBlocks().isEmpty()) {
             return null;
         }
-        
+
         Map<Location, BlockInfo> blockMap = frame.getBlocks();
         List<Location> locations = new ArrayList<>(blockMap.keySet());
-        
+
         double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, minZ = Double.MAX_VALUE;
         double maxX = Double.MIN_VALUE, maxY = Double.MIN_VALUE, maxZ = Double.MIN_VALUE;
-        
+
         for (Location loc : locations) {
             minX = Math.min(minX, loc.getX());
             minY = Math.min(minY, loc.getY());
@@ -1804,12 +1904,13 @@ public class AnimationManager {
             maxY = Math.max(maxY, loc.getY());
             maxZ = Math.max(maxZ, loc.getZ());
         }
-        
+
         double centerX = minX + (maxX - minX) / 2;
         double centerY = minY + (maxY - minY) / 2;
         double centerZ = minZ + (maxZ - minZ) / 2;
-        
+
         World world = locations.get(0).getWorld();
         return new Location(world, centerX, centerY, centerZ);
     }
 }
+
