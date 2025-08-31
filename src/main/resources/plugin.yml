@@ -1,7 +1,7 @@
 name: movingblocks
 version: '${version}'
 main: de.groupxyz.movingblocks.Movingblocks
-api-version: '1.21'
+api-version: '1.18'
 author: GroupXyz
 prefix: mb
 commands:

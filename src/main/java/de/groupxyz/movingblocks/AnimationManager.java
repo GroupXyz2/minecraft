@@ -53,9 +53,15 @@ public class AnimationManager {
         this.protectedAnimations = new HashSet<>();
         this.protectedBlocks = new HashMap<>();
 
-        this.useNbt = true;
-        
-        plugin.getLogger().info("NBT support is " + (useNbt ? "enabled" : "disabled") + 
+        File configFile = new File(plugin.getDataFolder(), "animations.yml");
+        if (configFile.exists()) {
+            FileConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+            this.useNbt = config.getBoolean("useNbt", false);
+        } else {
+            this.useNbt = false;
+        }
+
+        plugin.getLogger().info("NBT support is " + (useNbt ? "enabled" : "disabled") +
                 " for block animations");
 
         loadAnimations();
