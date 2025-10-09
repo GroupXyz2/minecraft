@@ -27,7 +27,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
             "clear", "delete", "list", "enable", "disable", "frame",
             "mode", "preview", "duplicate", "rename", "deselect",
             "finalize", "paste", "pasteframe", "info", "protect",
-            "event", "multiselect", "sound", "checkupdate"
+            "event", "multiselect", "sound", "checkupdate", "save"
     );
 
     private final Map<UUID, Location> firstPoint = new HashMap<>();
@@ -460,6 +460,11 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                 }
                 return true;
 
+            case "save":
+                animationManager.saveAllAnimations();
+                player.sendMessage("§aAll animations saved!");
+                return true;
+
             default:
                 sendHelp(player);
                 return true;
@@ -692,7 +697,9 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
         player.sendMessage("§e/mb info <name> §7- Show detailed information about an animation");
         player.sendMessage("§e/mb protect <name> [on|off] §7- Protect animation blocks from being destroyed");
         player.sendMessage("§e/mb event §7- Manage animation trigger events");
-        player.sendMessage("§e/mb toggleaxe §7- Toggle WorldEdit-like selection mode");
+        player.sendMessage("§e/mb toggleaxe §7- (Toggle WorldEdit-like selection mode) DEPRECATED! Press shift while selecting.");
+        player.sendMessage("§e/mb checkupdate §7- Check for plugin updates");
+        player.sendMessage("§e/mb save §7- Save all animations to disk");
     }
 
     @EventHandler
