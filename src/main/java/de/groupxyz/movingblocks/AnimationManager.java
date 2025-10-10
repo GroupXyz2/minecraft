@@ -286,7 +286,8 @@ public class AnimationManager {
             return;
         }
 
-        player.sendMessage("§aAnimation '" + animName + "' finalized. You can now create or select another animation.");
+        selectedBlocks.clear();
+        player.sendMessage("§aAnimation '" + animName + "' finalized. You can now create or select another animation, selection has been cleared.");
     }
 
     public void startGlobalAnimation(String name, Player player) {

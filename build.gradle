@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'de.groupxyz'
-version = '2.0-MAIN'
+version = '2.2-MAIN'
 
 repositories {
     mavenCentral()
