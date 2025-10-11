@@ -664,17 +664,25 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
     
     private void sendEventHelp(Player player) {
         player.sendMessage("§6§l==== Animation Event Commands ====");
-        player.sendMessage("§e/mb event create block <id> <anim_name> <type> [runOnce] [cooldown] §7- Create a block event");
-        player.sendMessage("§e/mb event create region <id> <anim_name> <type> [runOnce] [cooldown] §7- Create a region event");
+        player.sendMessage("§e/mb event create block <id> <anim_name> <type> [runOnce] [cooldown] [preventRetrigger] §7- Create a block event");
+        player.sendMessage("§e/mb event create region <id> <anim_name> <type> [runOnce] [cooldown] [preventRetrigger] §7- Create a region event");
         player.sendMessage("§e/mb event list §7- List all events");
         player.sendMessage("§e/mb event delete <id> §7- Delete an event");
         player.sendMessage("§e/mb event info <id> §7- Show event details");
         player.sendMessage(" ");
         player.sendMessage("§6Block event types: §fBUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE, STOP_ANIMATION");
         player.sendMessage("§6Region event types: §fREGION_ENTER, REGION_LEAVE, STOP_ANIMATION");
-        player.sendMessage("§6Example: §f/mb event create block button1 my_door BUTTON_PRESS false 2000");
-        player.sendMessage("§6Example: §f/mb event create region entrance room1 REGION_ENTER true 5000");
-        player.sendMessage("§6Example: §f/mb event create block stop_btn my_door STOP_ANIMATION false 2000");
+        player.sendMessage(" ");
+        player.sendMessage("§6Parameters:");
+        player.sendMessage("§e  runOnce: §ftrue/false - Run animation once or loop globally (default: false)");
+        player.sendMessage("§e  cooldown: §fmilliseconds - Per-player cooldown (default: 2000)");
+        player.sendMessage("§e  preventRetrigger: §ftrue/false - Prevent retriggering while running (default: false)");
+        player.sendMessage(" ");
+        player.sendMessage("§6Examples:");
+        player.sendMessage("§f/mb event create block button1 my_door BUTTON_PRESS false 2000 false");
+        player.sendMessage("§f/mb event create block walk1 my_anim BLOCK_WALK false 0 true §7(prevents restart)");
+        player.sendMessage("§f/mb event create region entrance room1 REGION_ENTER true 5000");
+        player.sendMessage("§f/mb event create block stop_btn my_door STOP_ANIMATION false 2000");
     }
 
     private void sendHelp(Player player) {
@@ -873,6 +881,13 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                 args[1].equalsIgnoreCase("create")) {
             return Arrays.asList("1000", "2000", "5000", "10000").stream()
                     .filter(s -> s.startsWith(args[7]))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length == 9 && args[0].equalsIgnoreCase("event") &&
+                args[1].equalsIgnoreCase("create")) {
+            return Arrays.asList("true", "false").stream()
+                    .filter(s -> s.startsWith(args[8].toLowerCase()))
                     .collect(Collectors.toList());
         }
 

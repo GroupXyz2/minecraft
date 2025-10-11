@@ -178,7 +178,12 @@ public class AnimationEventHandler implements Listener {
                 if (blockLoc != null && 
                     isSameBlock(blockLoc, to) && 
                     !isSameBlock(blockLoc, from)) {
-                    
+
+                    if (animEvent.isPreventRetrigger() &&
+                        animationManager.isAnimationRunningGlobally(animEvent.getAnimationName())) {
+                        continue;
+                    }
+
                     if (isPlayerOnCooldown(player, animEvent)) {
                         continue;
                     }
@@ -211,7 +216,12 @@ public class AnimationEventHandler implements Listener {
                 if (min != null && max != null && 
                     isInRegion(to, min, max) && 
                     !isInRegion(from, min, max)) {
-                    
+
+                    if (animEvent.isPreventRetrigger() &&
+                        animationManager.isAnimationRunningGlobally(animEvent.getAnimationName())) {
+                        continue;
+                    }
+
                     if (isPlayerOnCooldown(player, animEvent)) {
                         continue;
                     }
@@ -246,7 +256,12 @@ public class AnimationEventHandler implements Listener {
                 if (min != null && max != null && 
                     !isInRegion(to, min, max) && 
                     isInRegion(from, min, max)) {
-         
+
+                    if (animEvent.isPreventRetrigger() &&
+                        animationManager.isAnimationRunningGlobally(animEvent.getAnimationName())) {
+                        continue;
+                    }
+
                     if (isPlayerOnCooldown(player, animEvent)) {
                         continue;
                     }
@@ -286,26 +301,19 @@ public class AnimationEventHandler implements Listener {
         }
         
         boolean runOnce = event.isRunOnce();
-        
+        boolean preventRetrigger = event.isPreventRetrigger();
+
         // Check if preventRetrigger is enabled and animation is already running
-        if (event.isPreventRetrigger() && animationManager.isAnimationRunningGlobally(animationName)) {
-            plugin.getLogger().info("Animation '" + animationName + "' is already running, retriggering prevented (Event: " + event.getId() + ")");
+        if (preventRetrigger && animationManager.isAnimationRunningGlobally(animationName)) {
+            // Animation is already running and preventRetrigger is enabled - silently ignore
             return;
         }
 
         if (runOnce) {
-            plugin.getLogger().info("Event '" + event.getId() + "' runs animation '" + 
-                    animationName + "' once (triggered by " + player.getName() + ")");
-            
             animationManager.playAnimationOnce(animationName);
         } else {
             if (!animationManager.isAnimationRunningGlobally(animationName)) {
-                plugin.getLogger().info("Event '" + event.getId() + "' starts animation '" + 
-                        animationName + "' globally (triggered by " + player.getName() + ")");
-                        
                 animationManager.startGlobalAnimation(animationName, player);
-            } else {
-                plugin.getLogger().info("Animation '" + animationName + "' is already running, event ignored");
             }
         }
     }
@@ -367,7 +375,7 @@ public class AnimationEventHandler implements Listener {
                 case BUTTON_PRESS:
                 case BLOCK_WALK:
                 case LEVER_TOGGLE:
-                case STOP_ANIMATION:  // Added support for stop events
+                case STOP_ANIMATION:
                     Location loc = (Location) event.getParameter("location");
                     if (loc != null) {
                         config.set(id + ".world", loc.getWorld().getName());
@@ -427,7 +435,7 @@ public class AnimationEventHandler implements Listener {
                     case BUTTON_PRESS:
                     case BLOCK_WALK:
                     case LEVER_TOGGLE:
-                    case STOP_ANIMATION:  // Added support for stop events
+                    case STOP_ANIMATION:
                         String world = config.getString(id + ".world");
                         double x = config.getDouble(id + ".x");
                         double y = config.getDouble(id + ".y");
@@ -507,7 +515,7 @@ public class AnimationEventHandler implements Listener {
 
         if (type != EventType.REGION_ENTER && 
             type != EventType.REGION_LEAVE &&
-            type != EventType.STOP_ANIMATION) {  // Added support for stop events
+            type != EventType.STOP_ANIMATION) {  
             throw new IllegalArgumentException("Invalid event type for region event");
         }
         

@@ -1662,7 +1662,7 @@ public class AnimationManager {
             public void run() {
                 if (frameIndex[0] >= animation.frames.size()) {
                     cancel();
-                    plugin.getLogger().info("Animation '" + name + "' completed its one-time run.");
+                    //plugin.getLogger().info("Animation '" + name + "' completed its one-time run.");
                     return;
                 }
 
@@ -1674,7 +1674,7 @@ public class AnimationManager {
         UUID animationId = UUID.randomUUID();
         task.runTaskTimer(plugin, 0, animation.speed);
         runningAnimations.put(animationId, task);
-        plugin.getLogger().info("Animation '" + name + "' started for a one-time run.");
+        //plugin.getLogger().info("Animation '" + name + "' started for a one-time run.");
     }
 
     public boolean isAnimationExists(String name) {
