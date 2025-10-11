@@ -180,7 +180,7 @@ public class AnimationEventHandler implements Listener {
                     !isSameBlock(blockLoc, from)) {
 
                     if (animEvent.isPreventRetrigger() &&
-                        animationManager.isAnimationRunningGlobally(animEvent.getAnimationName())) {
+                        animationManager.isAnimationRunningAnywhere(animEvent.getAnimationName())) {
                         continue;
                     }
 
@@ -218,7 +218,7 @@ public class AnimationEventHandler implements Listener {
                     !isInRegion(from, min, max)) {
 
                     if (animEvent.isPreventRetrigger() &&
-                        animationManager.isAnimationRunningGlobally(animEvent.getAnimationName())) {
+                        animationManager.isAnimationRunningAnywhere(animEvent.getAnimationName())) {
                         continue;
                     }
 
@@ -258,7 +258,7 @@ public class AnimationEventHandler implements Listener {
                     isInRegion(from, min, max)) {
 
                     if (animEvent.isPreventRetrigger() &&
-                        animationManager.isAnimationRunningGlobally(animEvent.getAnimationName())) {
+                        animationManager.isAnimationRunningAnywhere(animEvent.getAnimationName())) {
                         continue;
                     }
 
@@ -303,9 +303,7 @@ public class AnimationEventHandler implements Listener {
         boolean runOnce = event.isRunOnce();
         boolean preventRetrigger = event.isPreventRetrigger();
 
-        // Check if preventRetrigger is enabled and animation is already running
-        if (preventRetrigger && animationManager.isAnimationRunningGlobally(animationName)) {
-            // Animation is already running and preventRetrigger is enabled - silently ignore
+        if (preventRetrigger && animationManager.isAnimationRunningAnywhere(animationName)) {
             return;
         }
 

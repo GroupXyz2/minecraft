@@ -1441,6 +1441,22 @@ public class AnimationManager {
         return globalAnimations.containsKey(name);
     }
 
+    public boolean isAnimationRunningAnywhere(String animationName) {
+        if (globalAnimations.containsKey(animationName)) {
+            return true;
+        }
+
+        for (Map.Entry<UUID, BukkitRunnable> entry : runningAnimations.entrySet()) {
+            UUID playerUUID = entry.getKey();
+            String currentAnimName = playerCurrentAnimation.get(playerUUID);
+            if (currentAnimName != null && animationName.equals(currentAnimName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public void pasteAnimation(Player player, String animName, Location targetLoc) {
         if (!animations.containsKey(animName)) {
             player.sendMessage("§cAnimation '" + animName + "' doesn't exist!");
