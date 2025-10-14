@@ -42,6 +42,8 @@ public class AnimationManager {
     private final Set<String> protectedAnimations;
     private final Map<Location, String> protectedBlocks;
 
+    private final Set<String> oneTimeRunningAnimations;
+
     public AnimationManager(Plugin plugin) {
         this.plugin = plugin;
         this.selectedBlocks = new HashMap<>();
@@ -52,6 +54,7 @@ public class AnimationManager {
         this.playerCurrentAnimation = new HashMap<>();
         this.protectedAnimations = new HashSet<>();
         this.protectedBlocks = new HashMap<>();
+        this.oneTimeRunningAnimations = new HashSet<>();
 
         File configFile = new File(plugin.getDataFolder(), "animations.yml");
         if (configFile.exists()) {
@@ -134,7 +137,21 @@ public class AnimationManager {
         public BlockFrame() {
             this.blocks = new HashMap<>();
         }
-        
+
+        public BlockFrame(BlockFrame other, double offsetX, double offsetY, double offsetZ, World targetWorld) {
+            this.blocks = new HashMap<>();
+            for (Map.Entry<Location, BlockInfo> entry : other.blocks.entrySet()) {
+                Location oldLoc = entry.getKey();
+                Location newLoc = new Location(
+                    targetWorld,
+                    oldLoc.getX() + offsetX,
+                    oldLoc.getY() + offsetY,
+                    oldLoc.getZ() + offsetZ
+                );
+                this.blocks.put(newLoc, new BlockInfo(entry.getValue()));
+            }
+        }
+
         public void addBlock(Location loc, Block block) {
             blocks.put(loc.clone(), new BlockInfo(block));
         }
@@ -238,7 +255,7 @@ public class AnimationManager {
         String currentAnim = playerCurrentAnimation.get(playerUUID);
         if (currentAnim != null && animations.containsKey(currentAnim)) {
             player.sendMessage("§cYou are currently working on animation '" + currentAnim + "'.");
-            player.sendMessage("§cPlease finish or deselect it before creating a new one.");
+            player.sendMessage("§cPlease finalize it (mb finalize) before creating a new one.");
             return;
         }
 
@@ -352,7 +369,9 @@ public class AnimationManager {
                         //plugin.getLogger().info("Global animation - sound info parsed: name=" + soundName + ", radius=" + radius + ", isGlobal=" + isGlobal);
                         
                         BlockFrame frame = animation.frames.get(frameIndex);
-                        Location centerLocation = calculateAnimationCenter(frame);                        if (isGlobal) {
+                        Location centerLocation = calculateAnimationCenter(frame);
+
+                        if (isGlobal) {
                             for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
                                 try {
                                     Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
@@ -367,22 +386,35 @@ public class AnimationManager {
                                 }
                             }
                         } else {
-                            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                                if (centerLocation != null && 
-                                    onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld()) &&
-                                    onlinePlayer.getLocation().distanceSquared(centerLocation) <= radius * radius) {
-                                    try {
-                                        Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
-                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
-                                        //plugin.getLogger().info("(2) Playing sound: " + soundName + " to player: " + onlinePlayer.getName());
-                                    } catch (IllegalArgumentException ex) {
+                            // For radius-based sounds, play at the animation center location
+                            if (centerLocation != null) {
+                                plugin.getLogger().info("[DEBUG] Playing radius-based sound. Center: " + centerLocation + ", Radius: " + radius);
+                                for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                                    double distance = onlinePlayer.getLocation().distance(centerLocation);
+                                    boolean inWorld = onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld());
+                                    boolean inRadius = distance <= radius;
+                                    plugin.getLogger().info("[DEBUG] Player " + onlinePlayer.getName() +
+                                        ": distance=" + distance + ", inWorld=" + inWorld + ", inRadius=" + inRadius);
+
+                                    if (inWorld && inRadius) {
                                         try {
-                                            onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
-                                        } catch (Exception e) {
-                                            plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                            Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                            onlinePlayer.playSound(centerLocation, soundEnum, 1.0f, 1.0f);
+                                            plugin.getLogger().info("[DEBUG] Successfully played sound to " + onlinePlayer.getName());
+                                        } catch (IllegalArgumentException ex) {
+                                            try {
+                                                onlinePlayer.playSound(centerLocation, soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                                plugin.getLogger().info("[DEBUG] Successfully played custom sound to " + onlinePlayer.getName());
+                                            } catch (Exception e) {
+                                                plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                            }
                                         }
+                                    } else {
+                                        plugin.getLogger().info("[DEBUG] Player " + onlinePlayer.getName() + " not in range");
                                     }
                                 }
+                            } else {
+                                plugin.getLogger().warning("[DEBUG] centerLocation is NULL for radius-based sound!");
                             }
                         }
                     } catch (Exception e) {
@@ -601,22 +633,27 @@ public class AnimationManager {
                                 }
                             }
                         } else {
-                            for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                                if (centerLocation != null && 
-                                    onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld()) &&
-                                    onlinePlayer.getLocation().distanceSquared(centerLocation) <= radius * radius) {
-                                    try {
-                                        Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
-                                        onlinePlayer.playSound(onlinePlayer.getLocation(), soundEnum, 1.0f, 1.0f);
-                                        //plugin.getLogger().info("(4) Playing sound: " + soundName + " to player: " + onlinePlayer.getName());
-                                    } catch (IllegalArgumentException ex) {
+                            if (centerLocation != null) {
+                                for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+                                    double distance = onlinePlayer.getLocation().distance(centerLocation);
+                                    boolean inWorld = onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld());
+                                    boolean inRadius = distance <= radius;
+
+                                    if (inWorld && inRadius) {
                                         try {
-                                            onlinePlayer.playSound(onlinePlayer.getLocation(), soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
-                                        } catch (Exception e) {
-                                            plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                            Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
+                                            onlinePlayer.playSound(centerLocation, soundEnum, 1.0f, 1.0f);
+                                        } catch (IllegalArgumentException ex) {
+                                            try {
+                                                onlinePlayer.playSound(centerLocation, soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
+                                            } catch (Exception e) {
+                                                plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
+                                            }
                                         }
                                     }
                                 }
+                            } else {
+                                plugin.getLogger().warning("centerLocation is NULL for radius-based sound!");
                             }
                         }
                     } catch (Exception e) {
@@ -1443,15 +1480,22 @@ public class AnimationManager {
 
     public boolean isAnimationRunningAnywhere(String animationName) {
         if (globalAnimations.containsKey(animationName)) {
-            return true;
-        }
-
-        for (Map.Entry<UUID, BukkitRunnable> entry : runningAnimations.entrySet()) {
-            UUID playerUUID = entry.getKey();
-            String currentAnimName = playerCurrentAnimation.get(playerUUID);
-            if (currentAnimName != null && animationName.equals(currentAnimName)) {
+            UUID animationId = globalAnimations.get(animationName);
+            if (runningAnimations.containsKey(animationId)) {
                 return true;
             }
+        }
+
+        for (Map.Entry<UUID, String> entry : playerCurrentAnimation.entrySet()) {
+            UUID playerUUID = entry.getKey();
+            String currentAnimName = entry.getValue();
+            if (animationName.equals(currentAnimName) && runningAnimations.containsKey(playerUUID)) {
+                return true;
+            }
+        }
+
+        if (oneTimeRunningAnimations.contains(animationName)) {
+            return true;
         }
 
         return false;
@@ -1507,24 +1551,14 @@ public class AnimationManager {
         Animation newAnimation = new Animation(newName, player.getUniqueId());
         newAnimation.speed = animation.speed;
         newAnimation.removeBlocksAfterFrame = animation.removeBlocksAfterFrame;
+        newAnimation.setProtected(animation.isProtected());
+
+        for (Map.Entry<Integer, String> soundEntry : animation.getAllSounds().entrySet()) {
+            newAnimation.addSound(soundEntry.getKey(), soundEntry.getValue());
+        }
 
         for (BlockFrame sourceFrame : animation.frames) {
-            BlockFrame newFrame = new BlockFrame();
-
-            for (Map.Entry<Location, BlockInfo> entry : sourceFrame.getBlocks().entrySet()) {
-                Location oldLoc = entry.getKey();
-                BlockInfo blockInfo = entry.getValue();
-
-                Location newLoc = new Location(
-                    targetLoc.getWorld(),
-                    oldLoc.getX() + offsetX,
-                    oldLoc.getY() + offsetY,
-                    oldLoc.getZ() + offsetZ
-                );
-
-                newFrame.getBlocks().put(newLoc, new BlockInfo(blockInfo));
-            }
-
+            BlockFrame newFrame = new BlockFrame(sourceFrame, offsetX, offsetY, offsetZ, targetLoc.getWorld());
             newAnimation.frames.add(newFrame);
         }
 
@@ -1617,22 +1651,7 @@ public class AnimationManager {
             newAnimation.removeBlocksAfterFrame = animation.removeBlocksAfterFrame;
 
             for (BlockFrame sourceFrame : animation.frames) {
-                BlockFrame newFrame = new BlockFrame();
-
-                for (Map.Entry<Location, BlockInfo> entry : sourceFrame.getBlocks().entrySet()) {
-                    Location oldLoc = entry.getKey();
-                    BlockInfo blockInfo = entry.getValue();
-
-                    Location newLoc = new Location(
-                        targetLoc.getWorld(),
-                        oldLoc.getX() + offsetX,
-                        oldLoc.getY() + offsetY,
-                        oldLoc.getZ() + offsetZ
-                    );
-
-                    newFrame.getBlocks().put(newLoc, new BlockInfo(blockInfo));
-                }
-
+                BlockFrame newFrame = new BlockFrame(sourceFrame, offsetX, offsetY, offsetZ, targetLoc.getWorld());
                 newAnimation.frames.add(newFrame);
             }
 
@@ -1672,12 +1691,15 @@ public class AnimationManager {
             return;
         }
 
+        oneTimeRunningAnimations.add(name);
+
         final int[] frameIndex = {0};
         BukkitRunnable task = new BukkitRunnable() {
             @Override
             public void run() {
                 if (frameIndex[0] >= animation.frames.size()) {
                     cancel();
+                    oneTimeRunningAnimations.remove(name);
                     //plugin.getLogger().info("Animation '" + name + "' completed its one-time run.");
                     return;
                 }
@@ -1904,14 +1926,23 @@ public class AnimationManager {
 
     private Location calculateAnimationCenter(BlockFrame frame) {
         if (frame == null || frame.getBlocks().isEmpty()) {
+            plugin.getLogger().warning("Error calculating animation center: Frame is null or empty!");
             return null;
         }
 
         Map<Location, BlockInfo> blockMap = frame.getBlocks();
         List<Location> locations = new ArrayList<>(blockMap.keySet());
 
+        for (int i = 0; i < Math.min(3, locations.size()); i++) {
+            Location loc = locations.get(i);
+        }
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            Location pLoc = p.getLocation();
+        }
+
         double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, minZ = Double.MAX_VALUE;
-        double maxX = Double.MIN_VALUE, maxY = Double.MIN_VALUE, maxZ = Double.MIN_VALUE;
+        double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE, maxZ = -Double.MAX_VALUE;
 
         for (Location loc : locations) {
             minX = Math.min(minX, loc.getX());
@@ -1927,7 +1958,9 @@ public class AnimationManager {
         double centerZ = minZ + (maxZ - minZ) / 2;
 
         World world = locations.get(0).getWorld();
-        return new Location(world, centerX, centerY, centerZ);
+        Location center = new Location(world, centerX, centerY, centerZ);
+
+        return center;
     }
 }
 
