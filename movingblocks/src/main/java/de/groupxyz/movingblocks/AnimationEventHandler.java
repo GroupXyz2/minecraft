@@ -46,15 +46,22 @@ public class AnimationEventHandler implements Listener {
         private final Map<String, Object> parameters;
         private final boolean runOnce;
         private final long cooldown;
-        
+        private final boolean preventRetrigger;
+
         public AnimationEvent(String id, String animationName, EventType eventType, 
                 boolean runOnce, long cooldown) {
+            this(id, animationName, eventType, runOnce, cooldown, false);
+        }
+
+        public AnimationEvent(String id, String animationName, EventType eventType,
+                boolean runOnce, long cooldown, boolean preventRetrigger) {
             this.id = id;
             this.animationName = animationName;
             this.eventType = eventType;
             this.parameters = new HashMap<>();
             this.runOnce = runOnce;
             this.cooldown = cooldown;
+            this.preventRetrigger = preventRetrigger;
         }
         
         public String getId() {
@@ -87,6 +94,10 @@ public class AnimationEventHandler implements Listener {
         
         public long getCooldown() {
             return cooldown;
+        }
+
+        public boolean isPreventRetrigger() {
+            return preventRetrigger;
         }
     }
     
@@ -167,7 +178,12 @@ public class AnimationEventHandler implements Listener {
                 if (blockLoc != null && 
                     isSameBlock(blockLoc, to) && 
                     !isSameBlock(blockLoc, from)) {
-                    
+
+                    if (animEvent.isPreventRetrigger() &&
+                        animationManager.isAnimationRunningAnywhere(animEvent.getAnimationName())) {
+                        continue;
+                    }
+
                     if (isPlayerOnCooldown(player, animEvent)) {
                         continue;
                     }
@@ -200,7 +216,12 @@ public class AnimationEventHandler implements Listener {
                 if (min != null && max != null && 
                     isInRegion(to, min, max) && 
                     !isInRegion(from, min, max)) {
-                    
+
+                    if (animEvent.isPreventRetrigger() &&
+                        animationManager.isAnimationRunningAnywhere(animEvent.getAnimationName())) {
+                        continue;
+                    }
+
                     if (isPlayerOnCooldown(player, animEvent)) {
                         continue;
                     }
@@ -235,7 +256,12 @@ public class AnimationEventHandler implements Listener {
                 if (min != null && max != null && 
                     !isInRegion(to, min, max) && 
                     isInRegion(from, min, max)) {
-         
+
+                    if (animEvent.isPreventRetrigger() &&
+                        animationManager.isAnimationRunningAnywhere(animEvent.getAnimationName())) {
+                        continue;
+                    }
+
                     if (isPlayerOnCooldown(player, animEvent)) {
                         continue;
                     }
@@ -275,20 +301,17 @@ public class AnimationEventHandler implements Listener {
         }
         
         boolean runOnce = event.isRunOnce();
-        
+        boolean preventRetrigger = event.isPreventRetrigger();
+
+        if (preventRetrigger && animationManager.isAnimationRunningAnywhere(animationName)) {
+            return;
+        }
+
         if (runOnce) {
-            plugin.getLogger().info("Event '" + event.getId() + "' runs animation '" + 
-                    animationName + "' once (triggered by " + player.getName() + ")");
-            
             animationManager.playAnimationOnce(animationName);
         } else {
             if (!animationManager.isAnimationRunningGlobally(animationName)) {
-                plugin.getLogger().info("Event '" + event.getId() + "' starts animation '" + 
-                        animationName + "' globally (triggered by " + player.getName() + ")");
-                        
                 animationManager.startGlobalAnimation(animationName, player);
-            } else {
-                plugin.getLogger().info("Animation '" + animationName + "' is already running, event ignored");
             }
         }
     }
@@ -344,12 +367,13 @@ public class AnimationEventHandler implements Listener {
             config.set(id + ".type", event.getEventType().name());
             config.set(id + ".runOnce", event.isRunOnce());
             config.set(id + ".cooldown", event.getCooldown());
-            
+            config.set(id + ".preventRetrigger", event.isPreventRetrigger());
+
             switch (event.getEventType()) {
                 case BUTTON_PRESS:
                 case BLOCK_WALK:
                 case LEVER_TOGGLE:
-                case STOP_ANIMATION:  // Added support for stop events
+                case STOP_ANIMATION:
                     Location loc = (Location) event.getParameter("location");
                     if (loc != null) {
                         config.set(id + ".world", loc.getWorld().getName());
@@ -400,15 +424,16 @@ public class AnimationEventHandler implements Listener {
                 String typeStr = config.getString(id + ".type");
                 boolean runOnce = config.getBoolean(id + ".runOnce", false);
                 long cooldown = config.getLong(id + ".cooldown", DEFAULT_COOLDOWN);
-                
+                boolean preventRetrigger = config.getBoolean(id + ".preventRetrigger", false);
+
                 EventType type = EventType.valueOf(typeStr);
-                AnimationEvent event = new AnimationEvent(id, animName, type, runOnce, cooldown);
-                
+                AnimationEvent event = new AnimationEvent(id, animName, type, runOnce, cooldown, preventRetrigger);
+
                 switch (type) {
                     case BUTTON_PRESS:
                     case BLOCK_WALK:
                     case LEVER_TOGGLE:
-                    case STOP_ANIMATION:  // Added support for stop events
+                    case STOP_ANIMATION:
                         String world = config.getString(id + ".world");
                         double x = config.getDouble(id + ".x");
                         double y = config.getDouble(id + ".y");
@@ -458,7 +483,12 @@ public class AnimationEventHandler implements Listener {
     
     public AnimationEvent createBlockEvent(String id, String animationName, EventType type, 
             Location location, boolean runOnce, long cooldown) {
-        
+        return createBlockEvent(id, animationName, type, location, runOnce, cooldown, false);
+    }
+
+    public AnimationEvent createBlockEvent(String id, String animationName, EventType type,
+            Location location, boolean runOnce, long cooldown, boolean preventRetrigger) {
+
         if (type != EventType.BUTTON_PRESS && 
             type != EventType.BLOCK_WALK && 
             type != EventType.LEVER_TOGGLE &&
@@ -466,7 +496,7 @@ public class AnimationEventHandler implements Listener {
             throw new IllegalArgumentException("Invalid event type for block event");
         }
         
-        AnimationEvent event = new AnimationEvent(id, animationName, type, runOnce, cooldown);
+        AnimationEvent event = new AnimationEvent(id, animationName, type, runOnce, cooldown, preventRetrigger);
         event.setParameter("location", location.clone());
         
         registerEvent(event);
@@ -475,10 +505,15 @@ public class AnimationEventHandler implements Listener {
     
     public AnimationEvent createRegionEvent(String id, String animationName, EventType type,
             Location min, Location max, boolean runOnce, long cooldown) {
+        return createRegionEvent(id, animationName, type, min, max, runOnce, cooldown, false);
+    }
+
+    public AnimationEvent createRegionEvent(String id, String animationName, EventType type,
+            Location min, Location max, boolean runOnce, long cooldown, boolean preventRetrigger) {
 
         if (type != EventType.REGION_ENTER && 
             type != EventType.REGION_LEAVE &&
-            type != EventType.STOP_ANIMATION) {  // Added support for stop events
+            type != EventType.STOP_ANIMATION) {  
             throw new IllegalArgumentException("Invalid event type for region event");
         }
         
@@ -496,7 +531,7 @@ public class AnimationEventHandler implements Listener {
                 Math.max(min.getY(), max.getY()),
                 Math.max(min.getZ(), max.getZ()));
         
-        AnimationEvent event = new AnimationEvent(id, animationName, type, runOnce, cooldown);
+        AnimationEvent event = new AnimationEvent(id, animationName, type, runOnce, cooldown, preventRetrigger);
         event.setParameter("min", minLoc.clone());
         event.setParameter("max", maxLoc.clone());
         

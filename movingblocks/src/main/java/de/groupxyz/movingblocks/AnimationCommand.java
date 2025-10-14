@@ -473,7 +473,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
     
     private void createBlockEvent(Player player, String eventId, String[] args) {
         if (args.length < 5) {
-            player.sendMessage("§cUsage: /mb event create block <id> <anim_name> <type> [runOnce] [cooldown]");
+            player.sendMessage("§cUsage: /mb event create block <id> <anim_name> <type> [runOnce] [cooldown] [preventRetrigger]");
             player.sendMessage("§cTypes: BUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE");
             return;
         }
@@ -503,6 +503,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
 
         boolean runOnce = false;
         long cooldown = 2000;
+        boolean preventRetrigger = false;
 
         if (args.length > 6) {
             runOnce = Boolean.parseBoolean(args[6]);
@@ -518,15 +519,19 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
             }
         }
 
+        if (args.length > 8) {
+            preventRetrigger = Boolean.parseBoolean(args[8]);
+        }
+
         Location location = player.getLocation().getBlock().getLocation();
         
         try {
             AnimationEventHandler.AnimationEvent event = animationEventHandler.createBlockEvent(
-                    eventId, animName, eventType, location, runOnce, cooldown);
-            
-            player.sendMessage("§aCreated " + eventType + " event '" + eventId + 
+                    eventId, animName, eventType, location, runOnce, cooldown, preventRetrigger);
+
+            player.sendMessage("§aCreated " + eventType + " event '" + eventId +
                     "' at your location for animation '" + animName + "'");
-            player.sendMessage("§aRunOnce: " + runOnce + " | Cooldown: " + cooldown + "ms");
+            player.sendMessage("§aRunOnce: " + runOnce + " | Cooldown: " + cooldown + "ms | PreventRetrigger: " + preventRetrigger);
         } catch (Exception e) {
             player.sendMessage("§cError creating event: " + e.getMessage());
         }
@@ -534,7 +539,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
     
     private void createRegionEvent(Player player, String eventId, String[] args) {
         if (args.length < 5) {
-            player.sendMessage("§cUsage: /mb event create region <id> <anim_name> <type> [runOnce] [cooldown]");
+            player.sendMessage("§cUsage: /mb event create region <id> <anim_name> <type> [runOnce] [cooldown] [preventRetrigger]");
             player.sendMessage("§cTypes: REGION_ENTER, REGION_LEAVE");
             return;
         }
@@ -563,6 +568,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
 
         boolean runOnce = false;
         long cooldown = 2000;
+        boolean preventRetrigger = false;
 
         if (args.length > 6) {
             runOnce = Boolean.parseBoolean(args[6]);
@@ -578,6 +584,10 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
             }
         }
 
+        if (args.length > 8) {
+            preventRetrigger = Boolean.parseBoolean(args[8]);
+        }
+
         Location playerLoc = player.getLocation();
         Location min = playerLoc.clone().subtract(2, 2, 2);
         Location max = playerLoc.clone().add(2, 2, 2);
@@ -586,11 +596,11 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
         
         try {
             AnimationEventHandler.AnimationEvent event = animationEventHandler.createRegionEvent(
-                    eventId, animName, eventType, min, max, runOnce, cooldown);
-            
+                    eventId, animName, eventType, min, max, runOnce, cooldown, preventRetrigger);
+
             player.sendMessage("§aCreated " + eventType + " event '" + eventId + 
                     "' for animation '" + animName + "'");
-            player.sendMessage("§aRunOnce: " + runOnce + " | Cooldown: " + cooldown + "ms");
+            player.sendMessage("§aRunOnce: " + runOnce + " | Cooldown: " + cooldown + "ms | PreventRetrigger: " + preventRetrigger);
         } catch (Exception e) {
             player.sendMessage("§cError creating event: " + e.getMessage());
         }
@@ -624,7 +634,8 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
         player.sendMessage("§6› §eType: §f" + event.getEventType().name());
         player.sendMessage("§6› §eRun Once: §f" + (event.isRunOnce() ? "Yes" : "No"));
         player.sendMessage("§6› §eCooldown: §f" + event.getCooldown() + "ms");
-        
+        player.sendMessage("§6› §ePrevent Retrigger: §f" + (event.isPreventRetrigger() ? "Yes" : "No"));
+
         switch (event.getEventType()) {
             case BUTTON_PRESS:
             case BLOCK_WALK:
@@ -653,17 +664,25 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
     
     private void sendEventHelp(Player player) {
         player.sendMessage("§6§l==== Animation Event Commands ====");
-        player.sendMessage("§e/mb event create block <id> <anim_name> <type> [runOnce] [cooldown] §7- Create a block event");
-        player.sendMessage("§e/mb event create region <id> <anim_name> <type> [runOnce] [cooldown] §7- Create a region event");
+        player.sendMessage("§e/mb event create block <id> <anim_name> <type> [runOnce] [cooldown] [preventRetrigger] §7- Create a block event");
+        player.sendMessage("§e/mb event create region <id> <anim_name> <type> [runOnce] [cooldown] [preventRetrigger] §7- Create a region event");
         player.sendMessage("§e/mb event list §7- List all events");
         player.sendMessage("§e/mb event delete <id> §7- Delete an event");
         player.sendMessage("§e/mb event info <id> §7- Show event details");
         player.sendMessage(" ");
         player.sendMessage("§6Block event types: §fBUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE, STOP_ANIMATION");
         player.sendMessage("§6Region event types: §fREGION_ENTER, REGION_LEAVE, STOP_ANIMATION");
-        player.sendMessage("§6Example: §f/mb event create block button1 my_door BUTTON_PRESS false 2000");
-        player.sendMessage("§6Example: §f/mb event create region entrance room1 REGION_ENTER true 5000");
-        player.sendMessage("§6Example: §f/mb event create block stop_btn my_door STOP_ANIMATION false 2000");
+        player.sendMessage(" ");
+        player.sendMessage("§6Parameters:");
+        player.sendMessage("§e  runOnce: §ftrue/false - Run animation once or loop globally (default: false)");
+        player.sendMessage("§e  cooldown: §fmilliseconds - Per-player cooldown (default: 2000)");
+        player.sendMessage("§e  preventRetrigger: §ftrue/false - Prevent retriggering while running (default: false)");
+        player.sendMessage(" ");
+        player.sendMessage("§6Examples:");
+        player.sendMessage("§f/mb event create block button1 my_door BUTTON_PRESS false 2000 false");
+        player.sendMessage("§f/mb event create block walk1 my_anim BLOCK_WALK false 0 true §7(prevents restart)");
+        player.sendMessage("§f/mb event create region entrance room1 REGION_ENTER true 5000");
+        player.sendMessage("§f/mb event create block stop_btn my_door STOP_ANIMATION false 2000");
     }
 
     private void sendHelp(Player player) {
@@ -862,6 +881,13 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                 args[1].equalsIgnoreCase("create")) {
             return Arrays.asList("1000", "2000", "5000", "10000").stream()
                     .filter(s -> s.startsWith(args[7]))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length == 9 && args[0].equalsIgnoreCase("event") &&
+                args[1].equalsIgnoreCase("create")) {
+            return Arrays.asList("true", "false").stream()
+                    .filter(s -> s.startsWith(args[8].toLowerCase()))
                     .collect(Collectors.toList());
         }
 
