@@ -185,6 +185,20 @@ public class AnimationSerializer {
             tempBlock.setBlockData(originalData);
 
             return blockInfo;
+        } catch (NullPointerException e) {
+            // Handle NPE from Minecraft internals (ShapeDetectorBlock.a() returning null)
+            plugin.getLogger().info("Failed to apply nbt data to block at " + loc + " with Material " + mat + ", this is a known issue with certain block types, and still being worked on.");
+            Block block = loc.getBlock();
+            Material original = block.getType();
+            BlockData originalData = block.getBlockData().clone();
+
+            block.setType(mat);
+            AnimationManager.BlockInfo blockInfo = new AnimationManager.BlockInfo(block);
+
+            block.setType(original);
+            block.setBlockData(originalData);
+
+            return blockInfo;
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to create block info: " + e.getMessage());
             Block block = loc.getBlock();
