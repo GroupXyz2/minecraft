@@ -169,9 +169,21 @@ public class AnimationManager {
         public BlockInfo(Block block) {
             this.material = block.getType();
             this.blockData = block.getBlockData().clone();
-            this.blockState = block.getState();
+
+            BlockState state = null;
+            try {
+                state = block.getState();
+            } catch (NullPointerException e) {
+            }
+            this.blockState = state;
         }
-        
+
+        public BlockInfo(Material material, BlockData blockData) {
+            this.material = material;
+            this.blockData = blockData.clone();
+            this.blockState = null;
+        }
+
         public BlockInfo(BlockInfo other) {
             this.material = other.material;
             this.blockData = other.blockData.clone();
@@ -194,13 +206,14 @@ public class AnimationManager {
             target.setType(material);
             target.setBlockData(blockData);
 
-            try {
-                BlockState newState = target.getState();
-                if (blockState.getClass().equals(newState.getClass())) {
-                    blockState.update(true, false);
+            if (blockState != null) {
+                try {
+                    BlockState newState = target.getState();
+                    if (blockState.getClass().equals(newState.getClass())) {
+                        blockState.update(true, false);
+                    }
+                } catch (Exception e) {
                 }
-            } catch (Exception e) {
-                Bukkit.getLogger().warning("Failed to apply NBT data: " + e.getMessage());
             }
         }
     }

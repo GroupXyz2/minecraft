@@ -119,32 +119,43 @@ public class AnimationSerializer {
                 Map<Integer, AnimationManager.BlockFrame> frameMap = new HashMap<>();
 
                 for (String frameIndexStr : framesSection.getKeys(false)) {
-                    int frameIndex = Integer.parseInt(frameIndexStr);
-                    AnimationManager.BlockFrame frame = frameMap.computeIfAbsent(frameIndex, k -> new AnimationManager.BlockFrame());
+                    try {
+                        int frameIndex = Integer.parseInt(frameIndexStr);
+                        AnimationManager.BlockFrame frame = frameMap.computeIfAbsent(frameIndex, k -> new AnimationManager.BlockFrame());
 
-                    ConfigurationSection blockSection = framesSection.getConfigurationSection(frameIndexStr);
-                    if (blockSection != null) {
-                        for (String blockIndexStr : blockSection.getKeys(false)) {
-                            String path = frameIndexStr + "." + blockIndexStr;
+                        ConfigurationSection blockSection = framesSection.getConfigurationSection(frameIndexStr);
+                        if (blockSection != null) {
+                            for (String blockIndexStr : blockSection.getKeys(false)) {
+                                try {
+                                    String path = frameIndexStr + "." + blockIndexStr;
 
-                            String worldName = config.getString("frames." + path + ".world");
-                            World world = Bukkit.getWorld(worldName);
-                            if (world == null) continue;
+                                    String worldName = config.getString("frames." + path + ".world");
+                                    World world = Bukkit.getWorld(worldName);
+                                    if (world == null) continue;
 
-                            double x = config.getDouble("frames." + path + ".x");
-                            double y = config.getDouble("frames." + path + ".y");
-                            double z = config.getDouble("frames." + path + ".z");
-                            Location loc = new Location(world, x, y, z);
+                                    double x = config.getDouble("frames." + path + ".x");
+                                    double y = config.getDouble("frames." + path + ".y");
+                                    double z = config.getDouble("frames." + path + ".z");
+                                    Location loc = new Location(world, x, y, z);
 
-                            String matName = config.getString("frames." + path + ".material");
-                            Material mat = Material.getMaterial(matName);
-                            if (mat == null) continue;
+                                    String matName = config.getString("frames." + path + ".material");
+                                    Material mat = Material.getMaterial(matName);
+                                    if (mat == null) continue;
 
-                            AnimationManager.BlockInfo blockInfo = createBlockInfo(loc, mat,
-                                    config.getString("frames." + path + ".blockData"));
+                                    AnimationManager.BlockInfo blockInfo = createBlockInfo(loc, mat,
+                                            config.getString("frames." + path + ".blockData"));
 
-                            frame.getBlocks().put(loc, blockInfo);
+                                    if (blockInfo != null) {
+                                        frame.getBlocks().put(loc, blockInfo);
+                                    }
+                                } catch (Exception e) {
+                                    plugin.getLogger().fine("Skipped block in frame " + frameIndexStr +
+                                        ", block " + blockIndexStr + ": " + e.getMessage());
+                                }
+                            }
                         }
+                    } catch (NumberFormatException e) {
+                        plugin.getLogger().warning("Invalid frame index: " + frameIndexStr);
                     }
                 }
 
@@ -159,6 +170,7 @@ public class AnimationSerializer {
 
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to load animation '" + name + "': " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }
@@ -172,46 +184,16 @@ public class AnimationSerializer {
                 blockData = Bukkit.createBlockData(mat);
             }
 
-            Block tempBlock = loc.getBlock();
-            Material originalType = tempBlock.getType();
-            BlockData originalData = tempBlock.getBlockData().clone();
+            return new AnimationManager.BlockInfo(mat, blockData);
 
-            tempBlock.setType(mat);
-            tempBlock.setBlockData(blockData);
-
-            AnimationManager.BlockInfo blockInfo = new AnimationManager.BlockInfo(tempBlock);
-
-            tempBlock.setType(originalType);
-            tempBlock.setBlockData(originalData);
-
-            return blockInfo;
-        } catch (NullPointerException e) {
-            // Handle NPE from Minecraft internals (ShapeDetectorBlock.a() returning null)
-            plugin.getLogger().info("Failed to apply nbt data to block at " + loc + " with Material " + mat + ", this is a known issue with certain block types, and still being worked on.");
-            Block block = loc.getBlock();
-            Material original = block.getType();
-            BlockData originalData = block.getBlockData().clone();
-
-            block.setType(mat);
-            AnimationManager.BlockInfo blockInfo = new AnimationManager.BlockInfo(block);
-
-            block.setType(original);
-            block.setBlockData(originalData);
-
-            return blockInfo;
         } catch (Exception e) {
-            plugin.getLogger().warning("Failed to create block info: " + e.getMessage());
-            Block block = loc.getBlock();
-            Material original = block.getType();
-            BlockData originalData = block.getBlockData().clone();
-
-            block.setType(mat);
-            AnimationManager.BlockInfo blockInfo = new AnimationManager.BlockInfo(block);
-
-            block.setType(original);
-            block.setBlockData(originalData);
-
-            return blockInfo;
+            plugin.getLogger().warning("Failed to create block info for " + mat + ": " + e.getMessage());
+            try {
+                return new AnimationManager.BlockInfo(mat, Bukkit.createBlockData(mat));
+            } catch (Exception ex) {
+                plugin.getLogger().severe("Critical error creating block info: " + ex.getMessage());
+                return null;
+            }
         }
     }
 }
