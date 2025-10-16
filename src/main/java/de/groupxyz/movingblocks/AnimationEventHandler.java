@@ -107,7 +107,7 @@ public class AnimationEventHandler implements Listener {
         REGION_LEAVE,      
         BLOCK_WALK,         
         LEVER_TOGGLE,
-        STOP_ANIMATION       // New event type to stop animations
+        STOP_ANIMATION
     }
     
     @EventHandler(priority = EventPriority.NORMAL)

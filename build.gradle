@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'de.groupxyz'
-version = '2.3-MAIN'
+version = '2.4-PURPUR-MAIN'
 
 repositories {
     mavenCentral()
@@ -18,10 +18,10 @@ repositories {
 }
 
 dependencies {
-compileOnly "io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT"
+compileOnly "io.papermc.paper:paper-api:1.18-R0.1-SNAPSHOT"
 }
 
-def targetJavaVersion = 21
+def targetJavaVersion = 17
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
     sourceCompatibility = javaVersion

@@ -1228,6 +1228,7 @@ public class AnimationManager {
         try {
             Block tempBlock = loc.getBlock();
             Material originalType = tempBlock.getType();
+            BlockData originalData = tempBlock.getBlockData().clone();
 
             tempBlock.setType(mat);
 
@@ -1237,13 +1238,24 @@ public class AnimationManager {
             }
 
             BlockInfo blockInfo = new BlockInfo(tempBlock);
+
             tempBlock.setType(originalType);
+            tempBlock.setBlockData(originalData);
 
             return blockInfo;
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to create block info: " + e.getMessage());
-            loc.getBlock().setType(mat);
-            return new BlockInfo(loc.getBlock());
+            Block block = loc.getBlock();
+            Material original = block.getType();
+            BlockData originalData = block.getBlockData().clone();
+            
+            block.setType(mat);
+            BlockInfo result = new BlockInfo(block);
+            
+            block.setType(original);
+            block.setBlockData(originalData);
+            
+            return result;
         }
     }
 
@@ -1963,4 +1975,3 @@ public class AnimationManager {
         return center;
     }
 }
-

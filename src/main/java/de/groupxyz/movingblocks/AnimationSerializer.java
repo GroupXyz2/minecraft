@@ -165,24 +165,39 @@ public class AnimationSerializer {
 
     private AnimationManager.BlockInfo createBlockInfo(Location loc, Material mat, String blockDataStr) {
         try {
-            Block tempBlock = loc.getBlock();
-            Material originalType = tempBlock.getType();
-
-            tempBlock.setType(mat);
-
-            if (blockDataStr != null) {
-                BlockData blockData = Bukkit.createBlockData(blockDataStr);
-                tempBlock.setBlockData(blockData);
+            BlockData blockData;
+            if (blockDataStr != null && !blockDataStr.isEmpty()) {
+                blockData = Bukkit.createBlockData(blockDataStr);
+            } else {
+                blockData = Bukkit.createBlockData(mat);
             }
 
+            Block tempBlock = loc.getBlock();
+            Material originalType = tempBlock.getType();
+            BlockData originalData = tempBlock.getBlockData().clone();
+
+            tempBlock.setType(mat);
+            tempBlock.setBlockData(blockData);
+
             AnimationManager.BlockInfo blockInfo = new AnimationManager.BlockInfo(tempBlock);
+
             tempBlock.setType(originalType);
+            tempBlock.setBlockData(originalData);
 
             return blockInfo;
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to create block info: " + e.getMessage());
-            loc.getBlock().setType(mat);
-            return new AnimationManager.BlockInfo(loc.getBlock());
+            Block block = loc.getBlock();
+            Material original = block.getType();
+            BlockData originalData = block.getBlockData().clone();
+
+            block.setType(mat);
+            AnimationManager.BlockInfo blockInfo = new AnimationManager.BlockInfo(block);
+
+            block.setType(original);
+            block.setBlockData(originalData);
+
+            return blockInfo;
         }
     }
 }
