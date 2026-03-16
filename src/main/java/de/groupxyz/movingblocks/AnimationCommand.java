@@ -492,12 +492,13 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
             if (eventType != AnimationEventHandler.EventType.BUTTON_PRESS &&
                 eventType != AnimationEventHandler.EventType.BLOCK_WALK &&
                 eventType != AnimationEventHandler.EventType.LEVER_TOGGLE &&
+                eventType != AnimationEventHandler.EventType.BELL_RING &&
                 eventType != AnimationEventHandler.EventType.STOP_ANIMATION) {
-                player.sendMessage("§cInvalid event type for block event. Use: BUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE, or STOP_ANIMATION");
+                player.sendMessage("§cInvalid event type for block event. Use: BUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE, BELL_RING, or STOP_ANIMATION");
                 return;
             }
         } catch (Exception e) {
-            player.sendMessage("§cInvalid event type. Use: BUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE, or STOP_ANIMATION");
+            player.sendMessage("§cInvalid event type. Use: BUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE, BELL_RING, or STOP_ANIMATION");
             return;
         }
 
@@ -640,6 +641,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
             case BUTTON_PRESS:
             case BLOCK_WALK:
             case LEVER_TOGGLE:
+            case BELL_RING:
             case STOP_ANIMATION:
                 Location loc = (Location) event.getParameter("location");
                 if (loc != null) {
@@ -670,7 +672,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
         player.sendMessage("§e/mb event delete <id> §7- Delete an event");
         player.sendMessage("§e/mb event info <id> §7- Show event details");
         player.sendMessage(" ");
-        player.sendMessage("§6Block event types: §fBUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE, STOP_ANIMATION");
+        player.sendMessage("§6Block event types: §fBUTTON_PRESS, BLOCK_WALK, LEVER_TOGGLE, BELL_RING, STOP_ANIMATION");
         player.sendMessage("§6Region event types: §fREGION_ENTER, REGION_LEAVE, STOP_ANIMATION");
         player.sendMessage(" ");
         player.sendMessage("§6Parameters:");
@@ -716,7 +718,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
         player.sendMessage("§e/mb info <name> §7- Show detailed information about an animation");
         player.sendMessage("§e/mb protect <name> [on|off] §7- Protect animation blocks from being destroyed");
         player.sendMessage("§e/mb event §7- Manage animation trigger events");
-        player.sendMessage("§e/mb toggleaxe §7- (Toggle WorldEdit-like selection mode) DEPRECATED! Press shift while selecting.");
+        player.sendMessage("§e/mb toggleaxe §7- (Toggle WE-like selection mode) DEPRECATED! Press shift while selecting.");
         player.sendMessage("§e/mb checkupdate §7- Check for plugin updates");
         player.sendMessage("§e/mb save §7- Save all animations to disk");
     }
@@ -859,7 +861,7 @@ public class AnimationCommand implements CommandExecutor, TabCompleter, Listener
                 args[1].equalsIgnoreCase("create")) {
             
             if (args[2].equalsIgnoreCase("block")) {
-                return Arrays.asList("BUTTON_PRESS", "BLOCK_WALK", "LEVER_TOGGLE", "STOP_ANIMATION").stream()
+                return Arrays.asList("BUTTON_PRESS", "BLOCK_WALK", "LEVER_TOGGLE","BELL_RING" , "STOP_ANIMATION").stream()
                         .filter(s -> s.startsWith(args[5].toUpperCase()))
                         .collect(Collectors.toList());
             } 

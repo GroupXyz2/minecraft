@@ -44,6 +44,8 @@ public class AnimationManager {
 
     private final Set<String> oneTimeRunningAnimations;
 
+    private static boolean emptyFramesWarningShown = false;
+
     public AnimationManager(Plugin plugin) {
         this.plugin = plugin;
         this.selectedBlocks = new HashMap<>();
@@ -401,33 +403,26 @@ public class AnimationManager {
                         } else {
                             // For radius-based sounds, play at the animation center location
                             if (centerLocation != null) {
-                                plugin.getLogger().info("[DEBUG] Playing radius-based sound. Center: " + centerLocation + ", Radius: " + radius);
                                 for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
                                     double distance = onlinePlayer.getLocation().distance(centerLocation);
                                     boolean inWorld = onlinePlayer.getLocation().getWorld().equals(centerLocation.getWorld());
                                     boolean inRadius = distance <= radius;
-                                    plugin.getLogger().info("[DEBUG] Player " + onlinePlayer.getName() +
-                                        ": distance=" + distance + ", inWorld=" + inWorld + ", inRadius=" + inRadius);
 
                                     if (inWorld && inRadius) {
                                         try {
                                             Sound soundEnum = Sound.valueOf(soundName.toUpperCase().replace("MINECRAFT:", "").replace(".", "_"));
                                             onlinePlayer.playSound(centerLocation, soundEnum, 1.0f, 1.0f);
-                                            plugin.getLogger().info("[DEBUG] Successfully played sound to " + onlinePlayer.getName());
                                         } catch (IllegalArgumentException ex) {
                                             try {
                                                 onlinePlayer.playSound(centerLocation, soundName, org.bukkit.SoundCategory.MASTER, 1.0f, 1.0f);
-                                                plugin.getLogger().info("[DEBUG] Successfully played custom sound to " + onlinePlayer.getName());
                                             } catch (Exception e) {
                                                 plugin.getLogger().warning("Could not play sound: " + soundName + " - " + e.getMessage());
                                             }
                                         }
-                                    } else {
-                                        plugin.getLogger().info("[DEBUG] Player " + onlinePlayer.getName() + " not in range");
                                     }
                                 }
                             } else {
-                                plugin.getLogger().warning("[DEBUG] centerLocation is NULL for radius-based sound!");
+                                plugin.getLogger().warning("[] centerLocation is NULL for radius-based sound!");
                             }
                         }
                     } catch (Exception e) {
@@ -610,6 +605,7 @@ public class AnimationManager {
         stopAnimation(player);
         currentFrame.put(playerUUID, 0);
 
+        final String finalName = name;
         BukkitRunnable task = new BukkitRunnable() {
             @Override
             public void run() {
@@ -617,7 +613,30 @@ public class AnimationManager {
                     cancel();
                     runningAnimations.remove(playerUUID);
                     return;
-                }                int frame = currentFrame.get(playerUUID);
+                }
+
+                if (animation.frames.isEmpty()) {
+                    if (!emptyFramesWarningShown) {
+                        plugin.getLogger().warning("Animation '" + finalName + "' has no frames during playback. Stopping animation.");
+                        emptyFramesWarningShown = true;
+                    }
+                    cancel();
+                    runningAnimations.remove(playerUUID);
+                    return;
+                }
+
+                int frame = currentFrame.get(playerUUID);
+
+                if (frame < 0 || frame >= animation.frames.size()) {
+                    if (!emptyFramesWarningShown) {
+                        plugin.getLogger().warning("Animation '" + finalName + "' frame index " + frame + " out of bounds (size: " + animation.frames.size() + "). Stopping animation.");
+                        emptyFramesWarningShown = true;
+                    }
+                    cancel();
+                    runningAnimations.remove(playerUUID);
+                    return;
+                }
+
                 playFrame(player, animation.frames.get(frame), animation.removeBlocksAfterFrame);
                   String sound = animation.getSound(frame);
                   //plugin.getLogger().info("Checking for sound at frame " + frame + ": " + (sound != null ? sound : "null"));
@@ -1326,9 +1345,9 @@ public class AnimationManager {
 
         Animation animation = animations.get(name);
 
-        player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
+        player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
         player.sendMessage("§6§l  Animation Information: §e" + name);
-        player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
+        player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
 
         player.sendMessage("§6› §eOwner: §f" + Bukkit.getOfflinePlayer(animation.owner).getName());
         player.sendMessage("§6› §eStatus: " + (animation.enabled ? "§aEnabled" : "§cDisabled"));
@@ -1389,7 +1408,7 @@ public class AnimationManager {
         player.sendMessage("§6› §eRunning status: " +
                 (isRunningGlobally ? "§aRunning globally" : "§cNot running globally"));
 
-        player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
+        player.sendMessage("§6§l≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡");
 
         String cmdPrefix = "/mb";
         player.sendMessage("§7Click on an action to perform it:");

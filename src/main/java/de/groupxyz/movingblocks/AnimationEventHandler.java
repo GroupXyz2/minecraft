@@ -107,7 +107,8 @@ public class AnimationEventHandler implements Listener {
         REGION_LEAVE,      
         BLOCK_WALK,         
         LEVER_TOGGLE,
-        STOP_ANIMATION
+        STOP_ANIMATION,
+        BELL_RING
     }
     
     @EventHandler(priority = EventPriority.NORMAL)
@@ -120,6 +121,7 @@ public class AnimationEventHandler implements Listener {
         for (AnimationEvent animEvent : registeredEvents.values()) {
             if (animEvent.getEventType() != EventType.BUTTON_PRESS && 
                 animEvent.getEventType() != EventType.LEVER_TOGGLE &&
+                animEvent.getEventType() !=  EventType.BELL_RING &&
                 animEvent.getEventType() != EventType.STOP_ANIMATION) {
                 continue;
             }
@@ -128,16 +130,18 @@ public class AnimationEventHandler implements Listener {
             boolean isButton = blockType.name().endsWith("_BUTTON");
             boolean isLever = blockType == Material.LEVER;
             boolean isPressurePlate = blockType.name().endsWith("_PRESSURE_PLATE");
+            boolean isBell = blockType == Material.BELL;
 
             if ((animEvent.getEventType() == EventType.BUTTON_PRESS && 
                  !(isButton || isPressurePlate)) ||
                 (animEvent.getEventType() == EventType.LEVER_TOGGLE && !isLever) ||
+                (animEvent.getEventType() == EventType.BELL_RING && !isBell) ||
                 (animEvent.getEventType() == EventType.STOP_ANIMATION && 
                  !(isButton || isPressurePlate || isLever))) {
                 continue;
             }
     
-            if ((isButton || isLever) && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            if ((isButton || isLever || isBell) && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
                 continue;
             }
             
@@ -373,6 +377,7 @@ public class AnimationEventHandler implements Listener {
                 case BUTTON_PRESS:
                 case BLOCK_WALK:
                 case LEVER_TOGGLE:
+                case BELL_RING:
                 case STOP_ANIMATION:
                     Location loc = (Location) event.getParameter("location");
                     if (loc != null) {
@@ -433,6 +438,7 @@ public class AnimationEventHandler implements Listener {
                     case BUTTON_PRESS:
                     case BLOCK_WALK:
                     case LEVER_TOGGLE:
+                    case BELL_RING:
                     case STOP_ANIMATION:
                         String world = config.getString(id + ".world");
                         double x = config.getDouble(id + ".x");
@@ -492,6 +498,7 @@ public class AnimationEventHandler implements Listener {
         if (type != EventType.BUTTON_PRESS && 
             type != EventType.BLOCK_WALK && 
             type != EventType.LEVER_TOGGLE &&
+            type != EventType.BELL_RING &&
             type != EventType.STOP_ANIMATION) {
             throw new IllegalArgumentException("Invalid event type for block event");
         }
