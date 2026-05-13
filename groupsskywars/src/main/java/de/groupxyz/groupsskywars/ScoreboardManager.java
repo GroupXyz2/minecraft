@@ -21,6 +21,14 @@ public class ScoreboardManager {
     private BukkitRunnable timerTask;
 
     public void startGameTimer() {
+        if (timerTask != null && !timerTask.isCancelled()) {
+            timerTask.cancel();
+        }
+
+        if (gameRunning) {
+            return;
+        }
+
         this.scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
         this.objective = scoreboard.registerNewObjective("gameInfo", "dummy", ChatColor.BOLD + "Skywars");
         this.objective.setDisplaySlot(DisplaySlot.SIDEBAR);
@@ -47,6 +55,7 @@ public class ScoreboardManager {
         gameRunning = false;
         if (timerTask != null) {
             timerTask.cancel();
+            timerTask = null;
         }
 
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -64,14 +73,14 @@ public class ScoreboardManager {
         updateScoreboard();
     }
 
-    private void updateScoreboard() {
+    public void updateScoreboard(Player player) {
+        if (!gameRunning || scoreboard == null || objective == null) return;
+
         String formattedTime = String.format("%02d:%02d", timeInSeconds / 60, timeInSeconds % 60);
 
         scoreboard.getEntries().forEach(scoreboard::resetScores);
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            player.setScoreboard(scoreboard);
-        }
+        player.setScoreboard(scoreboard);
 
         objective.getScore(ChatColor.DARK_PURPLE + "Spielzeit:").setScore(15);
         objective.getScore(ChatColor.LIGHT_PURPLE + formattedTime).setScore(14);
@@ -79,9 +88,9 @@ public class ScoreboardManager {
         objective.getScore(ChatColor.AQUA + "Kills:").setScore(13);
 
         int scoreIndex = 12;
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            String playerName = ChatColor.AQUA + player.getName();
-            int kills = playerKills.getOrDefault(player.getUniqueId(), 0);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            String playerName = ChatColor.AQUA + p.getName();
+            int kills = playerKills.getOrDefault(p.getUniqueId(), 0);
 
             objective.getScore(playerName).setScore(scoreIndex);
             objective.getScore(ChatColor.AQUA + " " + kills + " Kills").setScore(scoreIndex - 1);
@@ -91,5 +100,11 @@ public class ScoreboardManager {
         }
     }
 
-}
+    public void updateScoreboard() {
+        if (!gameRunning) return;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            updateScoreboard(player);
+        }
+    }
 
+}

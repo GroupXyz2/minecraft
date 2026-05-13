@@ -7,7 +7,6 @@ prefix: gsw
 commands:
   round:
     description: Verwaltet die SkyWars-Runde.
-    usage: /runde <start|stop|list> (mapname)
     permission: gsw.ad
   mapeditor:
     description: Mapeditor
@@ -17,8 +16,23 @@ commands:
     permission: gsw.ad
   stats:
     description: Statistiken
+  leaderboard:
+    description: Zeige die globale Rangliste
+    aliases: [lb]
+  kit:
+    description: Wähle dein Kit
+  skywarsinfo:
+    description: Zeigt Informationen über Kits, Lootblocks und Lootdrops
+    aliases: [swinfo, info]
   setfeature:
-    description: Setze ein Spawnpunk/Luckyblock
+    description: Setze ein Spawn  
+          punk/Luckyblock
+    permission: gsw.op
+  removefeature:
+    description: Entferne Features im Umkreis
+    permission: gsw.op
+  visualize:
+    description: Visualisiere Features im Map-Editor
     permission: gsw.op
   swlanguage:
     description: Bestimme die Sprache

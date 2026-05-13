@@ -1,4 +1,5 @@
 minPlayers: 4
+maxPlayers: -1 #Auto
 oldWorldDeletionEnabled: false
 language: "de"
 spawnPoints:
@@ -24,4 +25,5 @@ luckyBlocks:
     y: 64
     z: 105
 lootTable: "minecraft:chests/end_city_treasure"
+lootDropHeight: 100
 isDebug: false
